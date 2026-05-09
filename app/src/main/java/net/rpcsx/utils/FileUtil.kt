@@ -41,6 +41,7 @@ private data class InstallableFolder(
 
 object FileUtil {
     private val nativeInstallerSafeExtensions = setOf("pkg", "edat")
+    private val isoExtensions = setOf("iso")
 
     fun installPackages(context: Context, rootFolderUri: Uri) {
         thread {
@@ -64,7 +65,12 @@ object FileUtil {
                     paramSfo.close()
 
                     if (installDir != null) {
-                        batchDirs += InstallableFolder(currentFolderUri, installDir)
+                        val externalPath = documentUriToFilePath(currentFolderUri)
+                        if (externalPath != null && File(externalPath).exists()) {
+                            RPCSX.instance.collectGameInfo(externalPath, -1L)
+                        } else {
+                            batchDirs += InstallableFolder(currentFolderUri, installDir)
+                        }
                     } else {
                         workList.add(currentFolderUri)
                     }
@@ -77,6 +83,8 @@ object FileUtil {
                         workList.add(item.uri)
                     } else if (isNativeInstallerSafeFileName(item.filename)) {
                         batchFiles += item.uri
+                    } else if (isIsoFileName(item.filename)) {
+                        addExternalIsoGame(item)
                     } else {
                         Log.i("FileUtil", "Skipping unsupported folder import file: ${item.filename}")
                     }
@@ -107,8 +115,81 @@ object FileUtil {
         return extension in nativeInstallerSafeExtensions
     }
 
+    fun isIsoFileName(fileName: String): Boolean {
+        val extension = fileName.substringAfterLast('.', "").lowercase(Locale.US)
+        return extension in isoExtensions
+    }
+
     fun canUseNativeInstaller(context: Context, uri: Uri): Boolean {
         return displayName(context, uri)?.let { isNativeInstallerSafeFileName(it) } == true
+    }
+
+    fun documentUriToFilePath(uri: Uri): String? {
+        if (uri.authority != "com.android.externalstorage.documents") {
+            return null
+        }
+
+        val documentId = runCatching {
+            if (isRootTreeUri(uri)) {
+                DocumentsContract.getTreeDocumentId(uri)
+            } else {
+                DocumentsContract.getDocumentId(uri)
+            }
+        }.getOrNull() ?: return null
+
+        return externalStorageDocumentIdToFilePath(documentId)
+    }
+
+    fun externalStorageDocumentIdToFilePath(documentId: String): String? {
+        val parts = documentId.split(':', limit = 2)
+        if (parts.isEmpty() || parts[0].isBlank()) {
+            return null
+        }
+
+        val volume = parts[0]
+        val relativePath = parts.getOrNull(1).orEmpty().trim('/')
+        val root = if (volume.equals("primary", ignoreCase = true)) {
+            "/storage/emulated/0"
+        } else {
+            "/storage/$volume"
+        }
+
+        return if (relativePath.isBlank()) {
+            root
+        } else {
+            "$root/$relativePath"
+        }
+    }
+
+    fun isAppManagedPath(path: String): Boolean {
+        val root = RPCSX.rootDirectory.takeIf { it.isNotBlank() } ?: return false
+        return isInsideDirectory(File(path), File(root))
+    }
+
+    private fun addExternalIsoGame(item: SimpleDocument) {
+        val path = documentUriToFilePath(item.uri)
+        if (path == null) {
+            Log.w("FileUtil", "Cannot add ISO without direct storage path: ${item.filename}")
+            return
+        }
+
+        GameRepository.add(
+            arrayOf(
+                GameInfo(
+                    path = path,
+                    name = item.filename.substringBeforeLast('.', item.filename)
+                )
+            ),
+            -1L
+        )
+    }
+
+    private fun isInsideDirectory(file: File, directory: File): Boolean {
+        return runCatching {
+            val filePath = file.canonicalFile.toPath()
+            val directoryPath = directory.canonicalFile.toPath()
+            filePath.startsWith(directoryPath)
+        }.getOrDefault(false)
     }
 
     private fun displayName(context: Context, uri: Uri): String? {
@@ -256,7 +337,8 @@ object FileUtil {
 
     fun deleteCache(ctx: Context, gameId: String, onComplete: (Boolean) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
-            val result = File(ctx.getExternalFilesDir(null)!!, "cache/cache/$gameId").deleteRecursively()
+            val cacheDir = File(ctx.getExternalFilesDir(null)!!, "cache/cache/$gameId")
+            val result = !cacheDir.exists() || cacheDir.deleteRecursively()
             withContext(Dispatchers.Main) {
                 onComplete(result)
             }

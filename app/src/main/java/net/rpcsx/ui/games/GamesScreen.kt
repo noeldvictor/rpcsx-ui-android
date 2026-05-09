@@ -122,23 +122,23 @@ fun GameItem(game: Game, onOpenGameDetails: (Game) -> Unit) {
                         game.addProgress(GameProgress(deleteProgress, GameProgressType.Compile))
                         ProgressRepository.onProgressEvent(deleteProgress, 1, 0L)
                         val path = File(game.info.path)
-                        if (path.exists()) {
+                        if (FileUtil.isAppManagedPath(game.info.path) && path.exists()) {
                             path.deleteRecursively()
-                            FileUtil.deleteCache(
-                                context,
-                                game.info.path.substringAfterLast("/")
-                            ) { success ->
-                                if (!success) {
-                                    AlertDialogQueue.showDialog(
-                                        title = context.getString(R.string.unexpected_error),
-                                        message = context.getString(R.string.failed_to_delete_game_cache),
-                                        confirmText = context.getString(R.string.close),
-                                        dismissText = ""
-                                    )
-                                }
-                                ProgressRepository.onProgressEvent(deleteProgress, 100, 100)
-                                GameRepository.remove(game)
+                        }
+                        FileUtil.deleteCache(
+                            context,
+                            game.info.path.substringAfterLast("/")
+                        ) { success ->
+                            if (!success) {
+                                AlertDialogQueue.showDialog(
+                                    title = context.getString(R.string.unexpected_error),
+                                    message = context.getString(R.string.failed_to_delete_game_cache),
+                                    confirmText = context.getString(R.string.close),
+                                    dismissText = ""
+                                )
                             }
+                            ProgressRepository.onProgressEvent(deleteProgress, 100, 100)
+                            GameRepository.remove(game)
                         }
                     }
                 )
