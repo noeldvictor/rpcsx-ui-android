@@ -78,6 +78,7 @@
     <!-- PrecompilerService -->
     <string name="firmware_installation">Firmware Installation</string>
     <string name="package_installation">Package Installation</string>
+    <string name="unsupported_install_file">Only PKG and EDAT files are sent to the installer. Disc folders are scanned by PARAM.SFO; ISO import is disabled until native validation is fixed.</string>
 
     <!-- RPCSXActivity -->
     <string name="error_with_msg">Error: %1$s</string>

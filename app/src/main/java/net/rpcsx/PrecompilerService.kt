@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import net.rpcsx.utils.FileUtil
 import kotlin.concurrent.thread
 
 enum class PrecompilerServiceAction {
@@ -61,6 +62,16 @@ class PrecompilerService : Service() {
     }
 
     fun install(isFw: Boolean, uri: Uri, installProgress: Long): Boolean {
+        if (!isFw && !FileUtil.canUseNativeInstaller(this, uri)) {
+            ProgressRepository.onProgressEvent(
+                installProgress,
+                -1,
+                0,
+                getString(R.string.unsupported_install_file)
+            )
+            return false
+        }
+
         val descriptor = contentResolver.openAssetFileDescriptor(uri, "r")
         val fd = descriptor?.parcelFileDescriptor?.fd
 
@@ -130,7 +141,17 @@ class PrecompilerService : Service() {
             ServiceCompat.startForeground(
                 this,
                 installProgress.toInt(),
-                NotificationCompat.Builder(this, "rpcsx-progress").build(),
+                NotificationCompat.Builder(this, "rpcsx-progress")
+                    .setSmallIcon(R.drawable.ic_rpcsx_foreground)
+                    .setContentTitle(
+                        if (isFwInstall) {
+                            getString(R.string.firmware_installation)
+                        } else {
+                            getString(R.string.package_installation)
+                        }
+                    )
+                    .setOngoing(true)
+                    .build(),
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
                 } else {

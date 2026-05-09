@@ -8,6 +8,7 @@ import android.content.SharedPreferences
 import android.content.res.AssetFileDescriptor
 import android.content.ActivityNotFoundException
 import android.database.Cursor
+import android.provider.OpenableColumns
 import android.provider.DocumentsContract
 import androidx.core.content.edit
 import androidx.documentfile.provider.DocumentFile
@@ -31,6 +32,7 @@ import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.IOException
+import java.util.Locale
 import kotlin.concurrent.thread
 
 private data class InstallableFolder(
@@ -38,6 +40,8 @@ private data class InstallableFolder(
 )
 
 object FileUtil {
+    private val nativeInstallerSafeExtensions = setOf("pkg", "edat")
+
     fun installPackages(context: Context, rootFolderUri: Uri) {
         thread {
             val workList = mutableListOf<Uri>()
@@ -71,8 +75,10 @@ object FileUtil {
                 listFiles(currentFolderUri, context).forEach { item ->
                     if (item.isDirectory) {
                         workList.add(item.uri)
-                    } else {
+                    } else if (isNativeInstallerSafeFileName(item.filename)) {
                         batchFiles += item.uri
+                    } else {
+                        Log.i("FileUtil", "Skipping unsupported folder import file: ${item.filename}")
                     }
                 }
             }
@@ -94,6 +100,28 @@ object FileUtil {
                 RPCSX.instance.collectGameInfo(it.targetPath, -1L)
             }
         }
+    }
+
+    fun isNativeInstallerSafeFileName(fileName: String): Boolean {
+        val extension = fileName.substringAfterLast('.', "").lowercase(Locale.US)
+        return extension in nativeInstallerSafeExtensions
+    }
+
+    fun canUseNativeInstaller(context: Context, uri: Uri): Boolean {
+        return displayName(context, uri)?.let { isNativeInstallerSafeFileName(it) } == true
+    }
+
+    private fun displayName(context: Context, uri: Uri): String? {
+        val projection = arrayOf(OpenableColumns.DISPLAY_NAME)
+        return runCatching {
+            context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    cursor.getString(0)
+                } else {
+                    null
+                }
+            }
+        }.getOrNull() ?: uri.lastPathSegment
     }
 
     fun saveGameFolderUri(prefs: SharedPreferences, uri: Uri) {
