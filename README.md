@@ -66,6 +66,7 @@ Captured from the connected AYN Thor test device.
 
 - Rebranded as `RPCSX for AYN Thor Experiment`.
 - Automatic upstream UI/core update prompts are disabled for this fork through `BuildConfig.FORK_BUILD=true`.
+- RPCSX core source is vendored directly under `app/src/main/cpp/rpcsx` as plain files, not as a separate fork or root submodule, so Thor native experiments can live in this one repo.
 - External ISO folder import is handled as direct library entries instead of blindly extracting loose ISO contents.
 - ISO metadata and cover lookup read `PS3_GAME/PARAM.SFO` and `PS3_GAME/ICON0.PNG` directly where possible.
 - Cheat work is now a first-class fork feature: bundled cheat database assets, cheat badges, per-game cheat visibility, Artemis/Aldos import experiments, and RPCS3 patch imports.
@@ -131,6 +132,8 @@ Debug APK output:
 ```powershell
 .\gradlew.bat :app:assembleDebug
 ```
+
+The current Gradle app build still builds the Android JNI wrapper at `app/src/main/cpp/CMakeLists.txt`. The vendored upstream core source is available at `app/src/main/cpp/rpcsx`, with its Android CMake entry at `app/src/main/cpp/rpcsx/android/CMakeLists.txt`; wiring the APK to build that full core from source is a separate native-build step.
 
 Expected debug APK name:
 

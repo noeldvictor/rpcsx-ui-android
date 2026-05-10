@@ -4,7 +4,7 @@
 
 APS3E is not faster because it magically avoids PS3 emulation work. It is an Android RPCS3-derived port with more Android-specific native control exposed in the app: default LLVM compile thread limits, native CPU detection, selectable LLVM CPU target, thread affinity masks, cache import/export plumbing, and a direct native PPU cache precompile hook.
 
-RPCSX for AYN Thor Experiment currently wraps a prebuilt RPCSX core through JNI. The UI can read/write core settings, starts a compilation queue processor, applies a Thor compile-relief preset, and now shows per-game cache status from `cache/cache/TITLEID`. True background "prepare PPU cache" still needs the RPCSX native library to expose a stable export; the current downloaded core does not expose `_rpcsx_preparePpuCache`.
+RPCSX for AYN Thor Experiment currently runs through the Android JNI wrapper path, and the repo now also vendors the RPCSX core source under `app/src/main/cpp/rpcsx` so native Thor experiments can happen in the same repo. The UI can read/write core settings, starts a compilation queue processor, applies a Thor compile-relief preset, and now shows per-game cache status from `cache/cache/TITLEID`. True background "prepare PPU cache" still needs the RPCSX native library to expose a stable export; the current installed core does not expose `_rpcsx_preparePpuCache`.
 
 The main Thor fix is not one single setting. It is:
 
@@ -74,6 +74,7 @@ That means APS3E is better positioned for Android performance because it can ste
 Local repo observations:
 
 - `app/src/main/cpp/native-lib.cpp` dynamically loads RPCSX exports such as `_rpcsx_processCompilationQueue`, `_rpcsx_startMainThreadProcessor`, `_rpcsx_settingsGet`, and `_rpcsx_settingsSet`.
+- `app/src/main/cpp/rpcsx` is now a plain-file vendor copy of the upstream RPCSX core source. The full upstream Android core build entry is `app/src/main/cpp/rpcsx/android/CMakeLists.txt`; the regular Gradle app build still points at the lightweight wrapper CMake file until we intentionally wire the full core build.
 - `app/src/main/java/net/rpcsx/MainActivity.kt` starts `startMainThreadProcessor()` and `processCompilationQueue()` background threads after core initialization.
 - `app/src/main/java/net/rpcsx/ui/settings/SettingsScreen.kt` can display the native settings JSON and write settings through `settingsSet`.
 - `RPCSX.rootDirectory` is set to the app external files directory. Game files can live on SD, but PPU/SPU/shader caches should be kept on fast internal app storage if possible.
