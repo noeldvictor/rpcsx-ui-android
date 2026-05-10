@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
@@ -11,6 +12,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import net.rpcsx.config.GameSettingsDatabase
 import net.rpcsx.dialogs.AlertDialogQueue
+import net.rpcsx.performance.CacheStorageManager
 import net.rpcsx.performance.ThorPerformanceProfile
 import net.rpcsx.ui.navigation.AppNavHost
 import net.rpcsx.utils.GeneralSettings
@@ -47,6 +49,11 @@ class MainActivity : ComponentActivity() {
             RPCSX.rootDirectory = applicationContext.getExternalFilesDir(null).toString()
             if (!RPCSX.rootDirectory.endsWith("/")) {
                 RPCSX.rootDirectory += "/"
+            }
+            CacheStorageManager.ensureSelectedLocation(this).also { result ->
+                if (!result.success) {
+                    Log.w("RPCSX-UI", "Cache storage setup failed: ${result.message}")
+                }
             }
             GameSettingsDatabase.ensureDatabaseExported(this)
 

@@ -96,6 +96,10 @@ If the app does not appear, verify the installed package:
 
 - Android-side cache status lives at `app/src/main/java/net/rpcsx/performance/GameCacheRepository.kt`.
 - Game detail reads `cache/cache/TITLEID` under `RPCSX.rootDirectory`, counts PPU entries, shows cache size, and exposes refresh/clear controls.
+- Compiled-cache storage selection lives at `app/src/main/java/net/rpcsx/performance/CacheStorageManager.kt` and is exposed from Settings as `Cache Storage`.
+- The core still expects `RPCSX.rootDirectory/cache/cache`; SD-card selection redirects that app-owned compiled-cache path with a symlink to the selected app-owned external-files directory.
+- Do not offer arbitrary SAF folders for emulator cache until the native core supports URI/document access or a stable cache-directory setting. App-owned storage roots are the safe selectable locations.
+- Switching compiled-cache storage can migrate existing cache data and should warn users that SD card cache may be slower and large moves can take minutes.
 - The native wrapper has an optional `_rpcsx_preparePpuCache` hook surfaced as `RPCSX.supportsPpuCachePreparation()` and `RPCSX.preparePpuCache(...)`.
 - The currently installed/downloaded RPCSX core does not expose `_rpcsx_preparePpuCache`; keep the UI honest and tell users to boot once to warm cache until a core export exists.
 - Do not call private C++ internals like `Emulator::BootGame` or `ppu_precompile` across the wrapper boundary unless the core intentionally exports a stable C ABI.

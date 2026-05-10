@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -46,6 +47,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -90,6 +92,7 @@ import net.rpcsx.R
 import net.rpcsx.RPCSX
 import net.rpcsx.UserRepository
 import net.rpcsx.dialogs.AlertDialogQueue
+import net.rpcsx.performance.CacheStorageManager
 import net.rpcsx.provider.AppDataDocumentProvider
 import net.rpcsx.ui.common.ComposePreview
 import net.rpcsx.utils.FileUtil
@@ -545,6 +548,60 @@ fun SettingsScreen(
 ) {
     val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val activeUser by remember { UserRepository.activeUser }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var cacheStorageStatus by remember { mutableStateOf<CacheStorageManager.Status?>(null) }
+    var cacheStorageMessage by remember { mutableStateOf<String?>(null) }
+    var cacheStorageBusy by remember { mutableStateOf(false) }
+    var showCacheStorageDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        cacheStorageStatus = withContext(Dispatchers.IO) {
+            CacheStorageManager.status(context)
+        }
+    }
+
+    fun switchCacheStorage(location: CacheStorageManager.Location) {
+        showCacheStorageDialog = false
+        val warning = if (location.removable) {
+            "SD-card compiled cache can save internal space, but it may be slower and can cause shader/PPU/SPU cache stutter. Close running games first. Moving a large cache can take minutes."
+        } else {
+            "Internal compiled cache is the fastest choice. Switching back may move cache files from SD storage and can take minutes if the cache is large."
+        }
+
+        AlertDialogQueue.showDialog(
+            title = "Use ${location.label}?",
+            message = warning,
+            confirmText = "Use",
+            dismissText = "Cancel",
+            onConfirm = {
+                scope.launch {
+                    cacheStorageBusy = true
+                    val result = withContext(Dispatchers.IO) {
+                        CacheStorageManager.setLocation(context, location)
+                    }
+                    cacheStorageStatus = result.status
+                    cacheStorageMessage = result.message
+                    cacheStorageBusy = false
+                    if (!result.success) {
+                        AlertDialogQueue.showDialog(
+                            title = context.getString(R.string.error),
+                            message = result.message
+                        )
+                    }
+                }
+            }
+        )
+    }
+
+    if (showCacheStorageDialog) {
+        CacheStorageDialog(
+            status = cacheStorageStatus,
+            busy = cacheStorageBusy,
+            onDismiss = { showCacheStorageDialog = false },
+            onSelect = ::switchCacheStorage
+        )
+    }
 
     Scaffold(
         modifier = Modifier
@@ -562,7 +619,6 @@ fun SettingsScreen(
                 })
         }
     ) { contentPadding ->
-        val context = LocalContext.current
         val configPicker = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.OpenDocument(),
             onResult = { uri: Uri? ->
@@ -603,6 +659,42 @@ fun SettingsScreen(
                                 context.getString(R.string.no_activity_to_handle_action)
                             )
                         }
+                    }
+                )
+            }
+
+            item(key = "cache_storage") {
+                val status = cacheStorageStatus
+                val description = when {
+                    cacheStorageBusy -> "Switching cache storage."
+                    status == null -> "Checking cache storage."
+                    else -> buildString {
+                        append(status.activeLocation.label)
+                        append("; ")
+                        append(CacheStorageManager.formatBytes(status.bytes))
+                        append(" used; ")
+                        append(CacheStorageManager.formatBytes(status.activeLocation.freeBytes))
+                        append(" free.")
+                        if (status.redirected) {
+                            append(" Redirected to selected storage.")
+                        }
+                        status.warning?.let {
+                            append(" ")
+                            append(it)
+                        }
+                        cacheStorageMessage?.let {
+                            append(" ")
+                            append(it)
+                        }
+                    }
+                }
+
+                HomePreference(
+                    title = "Cache Storage",
+                    icon = { PreferenceIcon(icon = painterResource(R.drawable.ic_folder)) },
+                    description = description,
+                    onClick = {
+                        showCacheStorageDialog = true
                     }
                 )
             }
@@ -716,6 +808,56 @@ fun SettingsScreen(
             }
         }
     }
+}
+
+@Composable
+private fun CacheStorageDialog(
+    status: CacheStorageManager.Status?,
+    busy: Boolean,
+    onDismiss: () -> Unit,
+    onSelect: (CacheStorageManager.Location) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Cache Storage") },
+        text = {
+            Column {
+                Text(
+                    "Internal is fastest. SD card compiled cache is for saving space, and may make cache-heavy boot or shader work slower."
+                )
+                Spacer(Modifier.height(12.dp))
+                if (status == null) {
+                    Text("Checking storage locations.")
+                } else {
+                    status.locations.forEach { location ->
+                        val current = location.rootPath == status.activeLocation.rootPath
+                        TextButton(
+                            enabled = !busy,
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { onSelect(location) }
+                        ) {
+                            Text(
+                                buildString {
+                                    append(location.label)
+                                    if (current) {
+                                        append(" (current)")
+                                    }
+                                    append(" - ")
+                                    append(CacheStorageManager.formatBytes(location.freeBytes))
+                                    append(" free")
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.close))
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
