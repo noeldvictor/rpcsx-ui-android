@@ -3,7 +3,7 @@
 ## Repo And Git
 
 - Work on `master` unless the user explicitly asks for a branch.
-- Remote push target is SSH: `git@github.com:noeldvictor/rpcsx-ui-android.git`.
+- Remote push target is SSH: `git@github.com:noeldvictor/rpcsx-ui-android-thor.git`.
 - Commit and push completed work to `origin master`.
 - Do not fork extra RPCSX repos for this project; keep Android-side work in this repo unless the user asks otherwise.
 - Public positioning: this is a personal-use, AI-assisted/vibe-coded AYN Thor experiment. Do not present it as official RPCSX, official AYN, stable, or support-backed.
@@ -31,7 +31,7 @@ Useful verification commands:
 
 ## Device Testing
 
-- Target handheld: Ayn Thor.
+- Target handheld: AYN Thor Base/Pro/Max.
 - Known ADB model string: `AYN_Thor`.
 - Debug APK path after assemble: `app\build\outputs\apk\debug\rpcsx-thor-experiment-debug.apk`.
 - Android package: `net.rpcsx.easy`.
@@ -40,6 +40,7 @@ Useful verification commands:
 - This fork sets `BuildConfig.FORK_BUILD=true`; automatic upstream UI/core update prompts should stay disabled.
 - Folder import is intentionally conservative: only loose `.pkg` and `.edat` files are sent to the native installer. Loose `.iso` files under Android external-storage documents are added as direct library entries instead of extracted, because the current core can abort while extracting some ISO directory entries.
 - External ISO entries parse `PS3_GAME/PARAM.SFO` and `PS3_GAME/ICON0.PNG` directly from the ISO to populate title IDs, names, cheat matching, and cached cover art.
+- The README is source-first: no big public APK download button, no support queue positioning.
 
 Install and launch:
 
@@ -77,6 +78,18 @@ If the app does not appear, verify the installed package:
 - RPCS3-ready `rpcs3_patch` entries already include PPU hashes and can be installed without the Artemis conversion step.
 - AoB cheats are parsed and counted as risky, but should not be installed until native byte validation/scanning exists.
 
+## Thor Variant Notes
+
+Base, Pro, and Max share the same CPU/GPU performance target:
+
+| Variant | CPU/GPU | RAM | Storage | App strategy |
+| --- | --- | ---: | ---: | --- |
+| Base | Snapdragon 8 Gen 2 / Adreno 740 | 8 GB LPDDR5X | 128 GB UFS 4.0 | Same CPU/GPU presets, smaller cache budget, avoid memory-hungry global views. |
+| Pro | Snapdragon 8 Gen 2 / Adreno 740 | 12 GB LPDDR5X | 256 GB UFS 4.0 | Default comfort target for testing. |
+| Max | Snapdragon 8 Gen 2 / Adreno 740 | 16 GB LPDDR5X | 1 TB UFS 4.0 | More cache/library headroom; do not assume faster PPU compile. |
+
+Thor Lite is Snapdragon 865 / Adreno 650 and is not the PS3 performance target for this fork. Do not apply Snapdragon 8 Gen 2 affinity masks to Lite.
+
 ## Thor CPU Notes
 
 The connected AYN Thor reports board/platform `kalama` and this CPU part layout:
@@ -88,6 +101,13 @@ The connected AYN Thor reports board/platform `kalama` and this CPU part layout:
 - Heavy work mask for performance plus prime cores: CPUs `3-7`, mask `0xF8`
 
 Use detected topology for presets. Do not assume every Snapdragon 8 Gen 2 device orders logical CPUs the same way.
+
+## Thor Optimization Notes
+
+- Already cleaned up Android-side hotspots: folder scan queues use `ArrayDeque`, URI file copy uses a larger stream buffer, ISO metadata avoids duplicate directory parsing, patch status file checks are cached, and `games.json` saves are debounced.
+- Next low-risk Android work: cache cheat badge lookups per game title ID, add per-game cache state, and keep heavy global cheat expansion off Base unless requested.
+- Next native/core work: expose PPU cache precompile, CPU topology, PPU/SPU/RSX affinity masks, and cache status. UI-only changes cannot truly pin native compile threads.
+- Default PPU compile experiment for Base/Pro/Max: Max LLVM compile threads `4`, heavy mask `0xF8`, then benchmark `3`, `5`, and `6`.
 
 ## Current Cheat/Test Fixture
 

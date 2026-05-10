@@ -10,7 +10,7 @@ The main Thor fix is not one single setting. It is:
 
 1. Keep PPU/SPU LLVM caches on fast internal storage.
 2. Cap LLVM compile threads around 4 first, then benchmark 3, 5, and 6.
-3. Add runtime-detected Snapdragon 8 Gen 2 presets.
+3. Add runtime-detected AYN Thor Base/Pro/Max Snapdragon 8 Gen 2 presets.
 4. Add explicit PPU cache prepare/status UI per game.
 5. Add native thread affinity and Android performance hints if the core lacks them.
 6. Preserve/label caches when core version, game update, firmware, or LLVM CPU target changes.
@@ -25,6 +25,9 @@ The main Thor fix is not one single setting. It is:
 - RPCS3 FAQ PPU cache notes: <https://wiki.rpcs3.net/index.php?title=Help:Frequently_Asked_Questions>
 - Qualcomm Snapdragon 8 Gen 2 product page: <https://www.qualcomm.com/smartphones/products/8-series/snapdragon-8-gen-2-mobile-platform>
 - Qualcomm Snapdragon 8 Gen 2 launch notes: <https://www.qualcomm.com/news/onq/2022/11/new-snapdragon-8-gen-2-8-extraordinary-mobile-experiences-unveiled>
+- AYN site Thor listing: <https://www.ayntec.com/>
+- AYN Thor system-parameters sheet: <https://manuals.plus/m/7e96f29e93e4e571eb4e2ee5f2220a98db9ab0a295678d69157e99ddfc948028.pdf>
+- AYN Thor Base/Pro/Max public SKU recap: <https://www.timeextension.com/news/2025/08/ayn-reveals-release-date-colours-and-specs-for-its-pocket-ds-rival>
 - Snapdragon 8 Gen 2 core breakdown reference: <https://www.notebookcheck.net/Qualcomm-Snapdragon-8-Gen-2-Processor-Benchmarks-and-Specs.670032.0.html>
 - Android `PerformanceHintManager`: <https://developer.android.com/reference/android/os/PerformanceHintManager>
 - Android NDK Performance Hint Manager: <https://developer.android.com/ndk/reference/group/a-performance-hint>
@@ -41,6 +44,8 @@ Thor's Snapdragon 8 Gen 2 is a heterogeneous mobile CPU, not a desktop CPU. The 
 - 2x Cortex-A715
 - 2x Cortex-A710
 - 3x Cortex-A510
+
+For AYN Thor, Base, Pro, and Max should be treated as the same CPU/GPU target: Snapdragon 8 Gen 2 with Adreno 740. The SKU differences are RAM and internal storage. Base has 8 GB RAM / 128 GB internal storage, Pro has 12 GB / 256 GB, and Max has 16 GB / 1 TB. Max gives more cache and memory headroom; it does not make PPU LLVM compilation a different CPU problem.
 
 The expensive part is that LLVM compile bursts are CPU-heavy, memory/cache-heavy, and not graphics-limited. If compile workers spill onto the A510 efficiency cores or Android keeps the process at ordinary scheduler priority, compile time can look absurd. If too many compiler threads run at once, the device can also heat/throttle and become slower than a smaller, steadier worker count.
 
@@ -72,15 +77,18 @@ Local repo observations:
 - `app/src/main/java/net/rpcsx/MainActivity.kt` starts `startMainThreadProcessor()` and `processCompilationQueue()` background threads after core initialization.
 - `app/src/main/java/net/rpcsx/ui/settings/SettingsScreen.kt` can display the native settings JSON and write settings through `settingsSet`.
 - `RPCSX.rootDirectory` is set to the app external files directory. Game files can live on SD, but PPU/SPU/shader caches should be kept on fast internal app storage if possible.
+- Android-side cleanup has started in this repo: folder scans use queue-friendly data structures, URI copying uses larger stream buffers, ISO metadata avoids duplicate directory parsing, game-card icon checks are off the composition path, patch status reads are cached, and library saves are debounced.
 
 The missing pieces are product/UI decisions and possibly native exports:
 
-- No simple "AYN Thor / Snapdragon 8 Gen 2" performance preset.
+- No simple "AYN Thor Base/Pro/Max / Snapdragon 8 Gen 2" performance preset.
 - No game-detail "Prepare PPU cache" button with progress/status.
 - No cache manager showing warm/cold PPU cache status per title.
 - No Android-side CPU topology detection in this repo.
 - No visible native API in this wrapper for direct `precompile_ppu_cache(path/fd)`.
 - No visible native API in this wrapper for PPU/SPU/RSX affinity masks, unless the downloaded core's settings JSON already exposes equivalent keys.
+
+Base/Pro/Max implication: do not fork three separate performance presets unless measurement proves a storage/RAM behavior difference. Start with one shared CPU/GPU preset, then vary cache budget and background-work aggressiveness by RAM/storage.
 
 ## Thor-Specific Preset Hypothesis
 
@@ -110,6 +118,14 @@ Initial experiments:
 | Thor Compile Burst | 5 | `0xF8` | `0xF8` | `0xF8` | Faster first compile if thermals hold. |
 | Thor Cool | 3 | `0x18` | `0x60` | `0x80` | Lower heat, maybe better sustained compile. |
 
+Variant policy:
+
+| Variant | CPU/GPU preset | Cache and background-work policy |
+| --- | --- | --- |
+| Base | Same as Pro/Max | Smaller cache budget, lazy global cheat expansion, strong stale-cache cleanup. |
+| Pro | Same as Base/Max | Default test target. |
+| Max | Same as Base/Pro | Larger cache budget, but do not assume faster PPU compile. |
+
 `Use LLVM CPU` should not be forced blindly. APS3E exposes `cortex-x3`, `cortex-a715`, `cortex-a710`, `cortex-a510`, and fallback targets, but its default is blank. Since generated code may execute on more than one core type, forcing `cortex-x3` is only safe after we prove all runtime cores support the emitted instructions or also pin the generated-code threads to compatible cores. Start with blank/generic, then benchmark `cortex-a710`, `cortex-a715`, and `cortex-x3` separately.
 
 ## Recommended Implementation Order
@@ -118,7 +134,7 @@ Initial experiments:
 
 Add a Performance page:
 
-- "Device preset: AYN Thor / Snapdragon 8 Gen 2"
+- "Device preset: AYN Thor Base/Pro/Max / Snapdragon 8 Gen 2"
 - "Prepare game cache" action on each game detail page
 - Per-game badges: `PPU cache missing`, `PPU cache ready`, `cache stale after core/settings change`
 - "Cache storage: internal app storage" warning if caches are on slower external/SD storage
@@ -134,6 +150,13 @@ Use `settingsGet/settingsSet` where the native settings JSON exposes:
 - `Core@@Use LLVM CPU`
 
 If the current RPCSX core exposes affinity mask keys, use them. If it does not, do not fake it in UI. Mark it as a native TODO.
+
+Keep the Android repo optimized around cheap wins while native hooks are missing:
+
+- Avoid main-thread filesystem probes during library redraw.
+- Keep cheat and trim views lazy; global expansion should be opt-in.
+- Keep SD-card metadata reads cached and bounded.
+- Keep `games.json` writes debounced during imports/scans.
 
 ### Phase 2: Native/Core Hooks
 
@@ -162,6 +185,8 @@ Build a cache manager that is boring and obvious:
 - Rebuild cache.
 
 Do not bundle generated PPU caches in the APK. They are generated from user game executables and are tied to settings/core version. Bundling them is a legal and technical mess.
+
+Do not promise that Thor Max is a PPU-compile fix. It gives storage/RAM headroom for caches, but the same Snapdragon 8 Gen 2 CPU is doing the LLVM work.
 
 ## Benchmark Plan
 

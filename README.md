@@ -10,7 +10,7 @@
   </a>
 </p>
 
-This is a personal-use Android fork of RPCSX-UI-Android aimed at the AYN Thor, especially Snapdragon 8 Gen 2 units. It is an experiment, it is vibe-coded with AI assistance, and it will move fast in whatever direction makes this handheld easier to use.
+This is a personal-use Android fork of RPCSX-UI-Android aimed at the AYN Thor Base, Pro, and Max. Those Snapdragon 8 Gen 2 / Adreno 740 models are the main target. It is an experiment, it is vibe-coded with AI assistance, and it will move fast in whatever direction makes this handheld easier to use.
 
 No stability guarantee. No support guarantee. Do not open issues expecting upstream-style triage. If the experiment annoys you, fork it and make your own version.
 
@@ -23,6 +23,18 @@ This fork is openly AI-assisted and vibe-coded. That means rough edges, fast exp
 This repo is source-first. Fork it, build it, and change what you need for your own AYN Thor.
 
 Build artifacts may exist in GitHub Actions, but this README intentionally does not present a big public download button. No store release, no support queue, no stability promise.
+
+## Thor Variants
+
+This fork treats **AYN Thor Base, Pro, and Max** as one CPU/GPU target. They share the Snapdragon 8 Gen 2 and Adreno 740 performance ceiling; the practical differences are RAM and internal storage.
+
+| Variant | CPU/GPU target | RAM | Internal storage | Fork posture |
+| --- | --- | ---: | ---: | --- |
+| Thor Base | Snapdragon 8 Gen 2 / Adreno 740 | 8 GB LPDDR5X | 128 GB UFS 4.0 | Same emulation speed target, tighter cache/storage budget. |
+| Thor Pro | Snapdragon 8 Gen 2 / Adreno 740 | 12 GB LPDDR5X | 256 GB UFS 4.0 | Default comfort target. |
+| Thor Max | Snapdragon 8 Gen 2 / Adreno 740 | 16 GB LPDDR5X | 1 TB UFS 4.0 | Best cache headroom; not a different CPU/GPU speed class. |
+
+Thor Lite is a Snapdragon 865 / Adreno 650 device. It may run the app, but it is not the performance target for PS3 work in this fork.
 
 ## What This Fork Is
 
@@ -50,8 +62,6 @@ Captured from the connected AYN Thor test device.
 
 ![Overlay editor](docs/screenshots/rpcsx-thor-overlay-editor.png)
 
-The requested Star Fox shot is not included because the connected PS3 library did not contain a Star Fox entry during capture. I am not fabricating unrelated IP screenshots for the README.
-
 ## Where This Diverges
 
 - Rebranded as `RPCSX for AYN Thor Experiment`.
@@ -62,6 +72,7 @@ The requested Star Fox shot is not included because the connected PS3 library di
 - Trim/Optimize is intentionally visible as an experimental tool path rather than hidden developer plumbing.
 - Thor-specific performance research lives under `report/`, including PPU compile/cache notes and Snapdragon 8 Gen 2 targeting.
 - Generated icon and README art are custom for this fork and intentionally avoid console/game/IP logos.
+- Android-side performance cleanup has started: less main-thread file probing, faster folder scan queues, safer large-file copy, cached patch status reads, and debounced library saves.
 
 ## AYN Thor Target Notes
 
@@ -91,10 +102,13 @@ Useful masks for future native/core work:
 
 The practical performance direction is boring but important: keep PPU/SPU/shader caches on internal storage, cap LLVM compile workers before they heat-soak the handheld, detect actual CPU topology, and expose one obvious Thor preset instead of making people decode advanced settings.
 
+Base/Pro/Max should use the same CPU and GPU presets. Pro/Max mostly let us keep more internal cache, larger game libraries, and more cheat/database state without memory or storage pressure.
+
 ## Reports
 
 - [APS3E, RPCSX, and Thor PPU compile notes](report/2026-05-10-aps3e-rpcsx-thor-ppu-compile.md)
-- [Snapdragon 8 Gen 2 Thor target notes](report/2026-05-10-snapdragon-8-gen-2-thor-target.md)
+- [AYN Thor Base/Pro/Max Snapdragon 8 Gen 2 target notes](report/2026-05-10-snapdragon-8-gen-2-thor-target.md)
+- [Markdown and Thor variant audit](report/2026-05-10-markdown-and-thor-variant-audit.md)
 
 ## Building
 
