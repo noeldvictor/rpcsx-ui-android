@@ -133,7 +133,16 @@ Debug APK output:
 .\gradlew.bat :app:assembleDebug
 ```
 
-The current Gradle app build still builds the Android JNI wrapper at `app/src/main/cpp/CMakeLists.txt`. The vendored upstream core source is available at `app/src/main/cpp/rpcsx`, with its Android CMake entry at `app/src/main/cpp/rpcsx/android/CMakeLists.txt`; wiring the APK to build that full core from source is a separate native-build step.
+The default Gradle app build builds the Android JNI wrapper at `app/src/main/cpp/CMakeLists.txt`. The vendored upstream core source is available at `app/src/main/cpp/rpcsx`, with its Android CMake entry at `app/src/main/cpp/rpcsx/android/CMakeLists.txt`.
+
+Experimental source-core packaging can be requested with:
+
+```powershell
+$env:RPCSX_BUILD_BUNDLED_CORE='1'
+.\gradlew.bat :app:assembleDebug
+```
+
+That path needs the upstream core third-party dependency trees available, so the default build leaves it off.
 
 Expected debug APK name:
 

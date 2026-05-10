@@ -4,6 +4,8 @@
 #include "Emu/System.h"
 #include "util/Config.h"
 
+#include <functional>
+
 namespace rsx
 {
 	namespace overlays
@@ -25,6 +27,19 @@ namespace rsx
 		{
 		public:
 			home_menu_entry(const std::string& text);
+		};
+
+		struct home_menu_toggle_entry : horizontal_layout
+		{
+		public:
+			home_menu_toggle_entry(const std::string& text, std::function<bool()> get_value);
+			compiled_resource& get_compiled() override;
+
+		private:
+			std::function<bool()> m_get_value;
+			bool m_last_value = false;
+			overlay_element m_background;
+			overlay_element m_checkbox;
 		};
 
 		template <typename T, typename C>

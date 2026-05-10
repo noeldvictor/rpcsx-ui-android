@@ -146,7 +146,7 @@ class RPCSX {
         }
 
         init {
-            System.loadLibrary("rpcsx-android")
+            System.loadLibrary("rpcsx-ui-jni")
         }
     }
 }

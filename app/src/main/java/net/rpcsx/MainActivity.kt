@@ -64,9 +64,22 @@ class MainActivity : ComponentActivity() {
             FirmwareRepository.load()
             GitHub.initialize(this)
 
+            val nativeLibraryDir =
+                packageManager.getApplicationInfo(packageName, 0).nativeLibraryDir
+            RPCSX.nativeLibDirectory = nativeLibraryDir
+
             var rpcsxLibrary = GeneralSettings["rpcsx_library"] as? String
             val rpcsxUpdateStatus = GeneralSettings["rpcsx_update_status"]
             val rpcsxPrevLibrary = GeneralSettings["rpcsx_prev_library"] as? String
+
+            if (rpcsxLibrary == null) {
+                val bundledCore = File(nativeLibraryDir, "librpcsx-android.so")
+                if (bundledCore.exists() && RPCSX.instance.getLibraryVersion(bundledCore.path) != null) {
+                    rpcsxLibrary = bundledCore.path
+                    GeneralSettings["rpcsx_installed_arch"] = "bundled"
+                    GeneralSettings.sync()
+                }
+            }
 
             if (rpcsxLibrary != null) {
                 if (rpcsxUpdateStatus == false && rpcsxPrevLibrary != null) {
@@ -91,10 +104,6 @@ class MainActivity : ComponentActivity() {
 
                 RPCSX.openLibrary(rpcsxLibrary)
             }
-
-            val nativeLibraryDir =
-                packageManager.getApplicationInfo(packageName, 0).nativeLibraryDir
-            RPCSX.nativeLibDirectory = nativeLibraryDir
 
             if (RPCSX.activeLibrary.value != null) {
                 RPCSX.instance.initialize(RPCSX.rootDirectory, UserRepository.getUserFromSettings())

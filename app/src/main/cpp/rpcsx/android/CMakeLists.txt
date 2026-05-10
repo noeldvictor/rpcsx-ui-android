@@ -3,6 +3,7 @@ project("rpcsx-android")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_POSITION_INDEPENDENT_CODE on)
+set(RPCSX_ANDROID_LIBRARY_NAME "rpcsx-android" CACHE STRING "Android RPCSX core shared library target name")
 
 set(FFMPEG_VERSION 5.1)
 set(LLVM_VERSION 20.1.2)
@@ -107,13 +108,14 @@ set(USE_SYSTEM_ZLIB on)
 set(USE_LIBEVDEV off)
 set(COMPILE_FFMPEG off)
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/.. rpcsx EXCLUDE_FROM_ALL)
+get_filename_component(RPCSX_CORE_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
+add_subdirectory(${RPCSX_CORE_SOURCE_DIR} rpcsx EXCLUDE_FROM_ALL)
 
-add_library(${CMAKE_PROJECT_NAME} SHARED
+add_library(${RPCSX_ANDROID_LIBRARY_NAME} SHARED
     src/rpcsx-android.cpp
 )
 
-target_link_libraries(${CMAKE_PROJECT_NAME}
+target_link_libraries(${RPCSX_ANDROID_LIBRARY_NAME}
     rpcs3
     rpcsx::fw::ps3
     rx

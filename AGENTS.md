@@ -16,7 +16,10 @@
 - The vendored tree has its own `UPSTREAM.md` with the upstream commit and sync notes.
 - Refresh the core source with `tools/sync_rpcsx_core.ps1` from the Android repo root; keep local Thor experiment changes in this repo.
 - Do not blindly vendor the upstream core's recursive third-party submodules into this repo. Large dependencies such as LLVM, FFmpeg, Vulkan, and shader/toolchain trees should be pulled only when we deliberately wire a full source core build.
-- The current Gradle app build still uses `app/src/main/cpp/CMakeLists.txt` for the lightweight Android JNI wrapper. The vendored full core Android build entry is `app/src/main/cpp/rpcsx/android/CMakeLists.txt`.
+- The default Gradle app build still uses `app/src/main/cpp/CMakeLists.txt` for the lightweight Android JNI wrapper. The vendored full core Android build entry is `app/src/main/cpp/rpcsx/android/CMakeLists.txt`.
+- Java loads the wrapper as `librpcsx-ui-jni.so`. A source-built/bundled core should package as `librpcsx-android.so`, and `MainActivity` will use it when no custom/downloaded core path is configured.
+- Build source-core packaging with `RPCSX_BUILD_BUNDLED_CORE=1` or `-PbuildBundledRpcsxCore=true` only after the core's third-party dependency trees are available.
+- Current source-core configure status: wrapper packaging works, but `RPCSX_BUILD_BUNDLED_CORE=1` fails until vendored/dependency trees such as `xbyak`, `SPIRV-Headers`, `SPIRV-Tools`, `Vulkan-Headers`, `SPIRV-Cross`, `glslang`, `json`, `LibAtrac9`, `yaml-cpp`, `cubeb`, `wolfssl`, `curl`, `fusion`, and `fmtlib` exist under the core tree or are otherwise supplied.
 - Treat core changes as first-class repo changes: edit the vendored files directly, test where possible, then commit and push on `master`.
 
 ## Local Build Environment
@@ -87,6 +90,8 @@ If the app does not appear, verify the installed package:
 - The Android-side native export surface for the full core lives at `app/src/main/cpp/rpcsx/android/src/rpcsx-android.cpp`; the lightweight dynamic-loader wrapper lives at `app/src/main/cpp/native-lib.cpp`.
 - Localized Home Menu IDs live in `app/src/main/cpp/rpcsx/rpcs3/Emu/localized_string_id.h`.
 - FPS/performance overlay rendering/reset code lives around `app/src/main/cpp/rpcsx/rpcs3/Emu/RSX/Overlays/overlay_perf_metrics.cpp`.
+- The vendored Home Menu now has a `Cheats` page source at `app/src/main/cpp/rpcsx/rpcs3/Emu/RSX/Overlays/HomeMenu/overlay_home_menu_cheats.cpp` and a top-level `Show FPS` toggle after Resume.
+- Those vendored Home Menu changes will not appear on Thor until the app is using a source-built/bundled core or another core build that includes these files. The installed APK can carry the wrapper plumbing before the bundled core exists.
 - The current Home Menu observed on Thor includes `Resume Game`, `Settings`, `Trophies`, `Take Screenshot`, `Start/Stop Recording`, `SaveState`, `Restart Game`, and `Exit Game`.
 - FPS display is already represented in the RPCSX config file under `Video -> Performance Overlay -> Enabled`. Through the Android settings bridge this should be treated as `Video@@Performance Overlay@@Enabled`.
 - If only a simple FPS toggle is requested, prefer toggling `Performance Overlay.Enabled` first. Avoid enabling debug overlays or graph-heavy performance views unless the user asks for more metrics.

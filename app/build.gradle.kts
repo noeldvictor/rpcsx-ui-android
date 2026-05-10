@@ -6,6 +6,10 @@ plugins {
     id("kotlin-parcelize")
 }
 
+val buildBundledRpcsxCore =
+    providers.gradleProperty("buildBundledRpcsxCore").orNull == "true" ||
+        System.getenv("RPCSX_BUILD_BUNDLED_CORE") == "1"
+
 android {
     namespace = "net.rpcsx"
     compileSdk = 36
@@ -21,6 +25,12 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments += "-DRPCSX_BUILD_BUNDLED_CORE=${if (buildBundledRpcsxCore) "ON" else "OFF"}"
+            }
         }
 
         buildConfigField("String", "Version", "\"v${versionName}\"")

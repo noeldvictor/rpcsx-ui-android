@@ -1,13 +1,16 @@
 #include "stdafx.h"
 #include "overlay_home_menu_main_menu.h"
+#include "overlay_home_menu_cheats.h"
 #include "overlay_home_menu_components.h"
 #include "overlay_home_menu_settings.h"
 #include "overlay_home_menu_savestate.h"
 #include "Emu/RSX/Overlays/FriendsList/overlay_friends_list_dialog.h"
 #include "Emu/RSX/Overlays/Trophies/overlay_trophy_list_dialog.h"
 #include "Emu/RSX/Overlays/overlay_manager.h"
+#include "Emu/RSX/Overlays/overlay_perf_metrics.h"
 #include "Emu/System.h"
 #include "Emu/system_config.h"
+#include "Emu/system_config_types.h"
 #include "rpcsx/fw/ps3/sceNpTrophy.h"
 
 extern atomic_t<bool> g_user_asked_for_recording;
@@ -35,6 +38,37 @@ namespace rsx
 
 					rsx_log.notice("User selected resume in home menu");
 					return page_navigation::exit;
+				});
+
+			add_page(std::make_shared<home_menu_cheats>(x, y, width, height, use_separators, this));
+
+			std::unique_ptr<overlay_element> show_fps = std::make_unique<home_menu_toggle_entry>(get_localized_string(localized_string_id::HOME_MENU_SHOW_FPS), []
+				{
+					return g_cfg.video.perf_overlay.perf_overlay_enabled.get();
+				});
+			add_item(show_fps, [this](pad_button btn) -> page_navigation
+				{
+					if (btn != pad_button::cross)
+						return page_navigation::stay;
+
+					const bool enabled = !g_cfg.video.perf_overlay.perf_overlay_enabled.get();
+					rsx_log.notice("User toggled FPS overlay in home menu to %d", enabled);
+					g_cfg.video.perf_overlay.perf_overlay_enabled.set(enabled);
+
+					if (enabled)
+					{
+						g_cfg.video.perf_overlay.level.set(detail_level::minimal);
+						g_cfg.video.perf_overlay.position.set(screen_quadrant::top_left);
+						g_cfg.video.perf_overlay.center_x.set(false);
+						g_cfg.video.perf_overlay.center_y.set(false);
+						g_cfg.video.perf_overlay.framerate_graph_enabled.set(false);
+						g_cfg.video.perf_overlay.frametime_graph_enabled.set(false);
+					}
+
+					Emu.GetCallbacks().save_emu_settings();
+					reset_performance_overlay();
+					refresh();
+					return page_navigation::stay;
 				});
 
 			add_page(std::make_shared<home_menu_settings>(x, y, width, height, use_separators, this));
