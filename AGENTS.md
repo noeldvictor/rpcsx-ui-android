@@ -2,9 +2,9 @@
 
 ## Repo And Git
 
-- Work on `master` unless the user explicitly asks for a branch.
+- Work directly on `master` only for this repo. Do not create or switch to feature branches for this fork.
 - Remote push target is SSH: `git@github.com:noeldvictor/rpcsx-ui-android-thor.git`.
-- Commit and push completed work to `origin master`.
+- Commit completed work to `master` and push only `origin master`.
 - Do not fork extra RPCSX repos for this project; keep Android-side and native/core experiment work in this repo unless the user asks otherwise.
 - Public positioning: this is a personal-use, AI-assisted/vibe-coded AYN Thor experiment. Do not present it as official RPCSX, official AYN, stable, or support-backed.
 
