@@ -695,6 +695,55 @@ std::string utils::get_firmware_version()
 	return {};
 }
 
+std::pair<u64, u64> utils::get_memory_usage()
+{
+#ifdef _WIN32
+	::MEMORYSTATUSEX memInfo{};
+	memInfo.dwLength = sizeof(memInfo);
+	::GlobalMemoryStatusEx(&memInfo);
+	return {memInfo.ullTotalPhys, memInfo.ullTotalPhys - memInfo.ullAvailPhys};
+#elif defined(__linux__)
+	std::ifstream proc("/proc/meminfo");
+	std::string line;
+	u64 mem_total = get_total_memory();
+	u64 mem_available = 0;
+
+	const auto parse_kib = [](std::string_view entry) -> u64
+	{
+		const usz start = entry.find_first_of("0123456789");
+		if (start == umax)
+		{
+			return 0;
+		}
+
+		const usz end = entry.find_first_not_of("0123456789", start);
+		const std::string_view value = entry.substr(start, end == umax ? umax : end - start);
+		const auto [success, amount] = string_to_number(value);
+		return success ? amount * 1024 : 0;
+	};
+
+	while (std::getline(proc, line))
+	{
+		if (line.starts_with("MemTotal:"))
+		{
+			if (const u64 value = parse_kib(line))
+			{
+				mem_total = value;
+			}
+		}
+		else if (line.starts_with("MemAvailable:"))
+		{
+			mem_available = parse_kib(line);
+			break;
+		}
+	}
+
+	return {mem_total, mem_total >= mem_available ? mem_total - mem_available : 0};
+#else
+	return {get_total_memory(), 0};
+#endif
+}
+
 utils::OS_version utils::get_OS_version()
 {
 	OS_version res{};
@@ -1050,7 +1099,7 @@ static const bool s_tsc_freq_evaluated = []() -> bool
 u64 utils::get_total_memory()
 {
 #ifdef _WIN32
-	::MEMORYSTATUSEX memInfo;
+	::MEMORYSTATUSEX memInfo{};
 	memInfo.dwLength = sizeof(memInfo);
 	::GlobalMemoryStatusEx(&memInfo);
 	return memInfo.ullTotalPhys;

@@ -2766,6 +2766,17 @@ void thread_base::exec()
 		}
 	}
 
+	if (auto [total, current] = utils::get_memory_usage(); total > current && total - current <= 256 * 1024 * 1024)
+	{
+		if (reason_buf.empty())
+		{
+			reason_buf = std::string{reason};
+		}
+
+		fmt::append(reason_buf, " (Possible RAM shortage: free RAM: %lluMB)",
+			(total - current) / (1024 * 1024));
+	}
+
 	if (!reason_buf.empty())
 	{
 		reason = reason_buf;

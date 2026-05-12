@@ -515,6 +515,14 @@ void jit_announce(uptr, usz, std::string_view);
   fmt::append(buf, "\nBuild: \"%s\"", rpcs3::get_verbose_version());
   fmt::append(buf, "\nDate: \"%s\"", std::chrono::system_clock::now());
 
+  const auto [total_ram, used_ram] = utils::get_memory_usage();
+  if (total_ram) {
+    fmt::append(buf, "\nRAM Usage: %lluMB/%lluMB (%lluMB free)",
+                used_ram / (1024 * 1024), total_ram / (1024 * 1024),
+                total_ram > used_ram ? (total_ram - used_ram) / (1024 * 1024)
+                                     : 0);
+  }
+
   __android_log_write(ANDROID_LOG_FATAL, "RPCS3", buf.c_str());
 
   jit_announce(0, 0, "");
