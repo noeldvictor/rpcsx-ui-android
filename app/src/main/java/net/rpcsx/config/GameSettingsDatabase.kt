@@ -28,6 +28,24 @@ object GameSettingsDatabase {
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
+    private val thorProfileOverrides = mapOf(
+        "BLUS30161" to """
+            # RPCSX_THOR_PROFILE_OVERRIDE
+            # Eternal Sonata stability profile for AYN Thor.
+            # Community note: limiting to 30 FPS avoids common battle/menu crash paths.
+            Audio:
+              Enable Time Stretching: true
+            Core:
+              Max SPURS Threads: 3
+            Video:
+              Frame limit: 30
+              Write Color Buffers: true
+              Force CPU Blit: true
+            Savestate:
+              Suspend Emulation Savestate Mode: true
+        """.trimIndent()
+    )
+
     data class Status(
         val titleId: String?,
         val hasProfile: Boolean,
@@ -165,16 +183,24 @@ object GameSettingsDatabase {
             )
         }
 
-        val hasProfile = database?.profiles?.containsKey(titleId) == true
+        val profileConfig = database?.profiles?.get(titleId)
+        val hasProfile = profileConfig != null
         val target = customConfigFile(titleId)
         val disabled = isDisabled(context, titleId)
         val configText = target?.takeIf { it.exists() }?.readText()
         val managed = configText?.startsWith(MANAGED_HEADER) == true
         val managedTimestamp = managedConfigTimestamp(configText)
-        val managedStale = managed &&
-            database?.timestamp != null &&
+        val expectedManagedConfig = if (database?.timestamp != null && profileConfig != null) {
+            buildManagedConfig(titleId, database.timestamp, profileConfig)
+        } else {
+            null
+        }
+        val timestampStale = database?.timestamp != null &&
             managedTimestamp != null &&
             managedTimestamp != database.timestamp
+        val contentStale = expectedManagedConfig != null &&
+            configText != expectedManagedConfig
+        val managedStale = managed && (timestampStale || contentStale)
         val custom = configText != null && !managed
 
         return Status(
@@ -356,6 +382,9 @@ object GameSettingsDatabase {
                 if (config.isNotBlank()) {
                     put(titleId, config)
                 }
+            }
+            thorProfileOverrides.forEach { (titleId, config) ->
+                put(titleId, config)
             }
         }
 
