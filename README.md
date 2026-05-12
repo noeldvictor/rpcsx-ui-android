@@ -62,28 +62,67 @@ Captured from the connected AYN Thor test device.
 
 ![Overlay editor](docs/screenshots/rpcsx-thor-overlay-editor.png)
 
-## Where This Diverges
+## How This Differs From Upstream
 
-- Rebranded as `RPCSX for AYN Thor Experiment`.
-- Automatic upstream UI/core update prompts are disabled for this fork through `BuildConfig.FORK_BUILD=true`.
-- RPCSX core source is vendored directly under `app/src/main/cpp/rpcsx` as plain files, not as a separate fork or root submodule, so Thor native experiments can live in this one repo.
-- External ISO folder import is handled as direct library entries instead of blindly extracting loose ISO contents.
-- ISO metadata and cover lookup read `PS3_GAME/PARAM.SFO` and `PS3_GAME/ICON0.PNG` directly where possible.
-- Cheat work is now a first-class fork feature: bundled cheat database assets, cheat badges, per-game cheat visibility, Artemis/Aldos import experiments, and RPCS3 patch imports.
-- The native in-game Home Menu has Thor-friendly toggles for Cheats, Fast Forward 2x, Show FPS, and SaveState. Physical hotkeys during gameplay are `Select + R1` for Fast Forward 2x, `Select + right stick down` for quick-save, and `Select + right stick up` for quick-load.
-- Recommended per-game settings are now a fork feature: the APK bundles an RPCS3 config database snapshot, keeps a writable local cache, and exposes one simple switch per game.
-- Per-game compiled-cache visibility is now on the game detail page: cache size, PPU/SPU/shader entry counts, refresh, clear, and an honest disabled prepare path when the installed RPCSX core lacks the native hook.
-- Compiled-cache storage is user-selectable from Settings between app-owned internal-fast storage and app-owned SD-card storage when Android exposes it. This covers PPU, SPU, and RSX shader cache together, with warnings about slower cache reads and large migrations.
-- Trim/Optimize is intentionally visible as an experimental tool path rather than hidden developer plumbing.
-- Thor-specific performance research lives under `report/`, including PPU compile/cache notes and Snapdragon 8 Gen 2 targeting.
-- Thor compile relief is now applied on AYN/Thor/kalama targets: LLVM compile workers are capped, full PPU precompile is off by default, the old Android `cortex-a34` startup override is removed, the JIT uses a Thor-safe `cortex-a78` target when bundled LLVM would otherwise pick SVE-enabled Armv9 cores, SPU and on-disk shader cache are kept on, and the process is pinned to Thor performance cores where Android allows it.
-- Fast Forward 2x is intentionally a guest-time speedhack using RPCSX/RPCS3 `Clocks scale`, not a raw uncapped renderer mode. It is experimental and may break games with sensitive timers.
-- System Info now includes a first `Thor Feature Doctor` readout: configured LLVM CPU, fallback CPU, AArch64 core names, and Android HWCAP/HWCAP2 feature flags.
-- Custom GPU driver download is Thor-guided: the driver screen shows Adreno 740 notes, curated Turnip GitHub sources, per-source warnings, and separate release assets instead of hiding everything behind one repo URL.
-- On-screen controller controls are easy to hide for Thor's physical controls; Thor targets default to hidden while non-Thor devices keep the old visible default.
-- AYN Thor motion input is wired on the Android side for PS3 Sixaxis; it becomes live when the RPCSX core exports `_rpcsx_overlayPadMotionData`. The matching core patch is kept under `core-patches/`.
-- Generated icon and README art are custom for this fork and intentionally avoid console/game/IP logos.
+Upstream RPCSX-UI-Android is the general Android app. This fork is the opinionated AYN Thor experiment: fewer generic choices, more "make this handheld less annoying" choices.
+
+### Easier For Thor Users
+
+These are the differences regular users should notice first:
+
+| Area | Upstream style | This Thor fork |
+| --- | --- | --- |
+| Device target | General Android devices. | AYN Thor Base, Pro, and Max are the main target. |
+| Updates | Upstream-style update prompts can appear. | Fork update nags are disabled, because this is meant to be built/forked directly. |
+| Game folders | More generic import behavior. | External ISO folders can be added as library entries, including SD-card PS3 folders. |
+| Game names and covers | Depends more on existing library metadata. | Reads `PARAM.SFO` and `ICON0.PNG` from PS3 game folders/ISOs when possible. |
+| Cheats | Not a central Android UI feature. | Cheat badges, per-game cheat lists, bundled cheat database work, and simple toggles are first-class goals. |
+| In-game menu | Generic emulator menu behavior. | Thor-friendly menu with Cheats, Fast Forward 2x, Show FPS, Save State, and Load State. |
+| Physical controls | Touch controls are normal by default. | Thor devices default to hidden on-screen controls because the handheld has real controls. |
+| Hotkeys | Less Thor-specific. | `Select + R1` toggles Fast Forward 2x, `Select + right stick down` saves, `Select + right stick up` loads. |
+| Back button | Generic Android behavior. | Android Back opens the in-game menu during gameplay and pauses the game. |
+| Gyro / Sixaxis | Not tailored to Thor. | Thor motion sensors are wired for PS3 Sixaxis when the bundled core exposes the motion bridge. |
+| Per-game settings | More manual emulator configuration. | Recommended per-game settings are exposed as a simple per-game switch using a bundled/local RPCS3 config snapshot. |
+| Compile/cache visibility | Cache behavior is easy to miss. | Game detail shows compiled-cache size and PPU/SPU/shader counts. |
+| Cache storage | Less obvious to nontechnical users. | Settings has `Compiled Cache Storage` for choosing internal storage or app-owned SD-card storage when Android exposes it. |
+| Trimming | Not presented as a major Android flow. | `Trim / Optimize` is visible as an experimental personal-use tool path. |
+| GPU drivers | More generic. | Custom driver screen is Thor-guided, with Adreno 740 notes and curated Turnip-style sources. |
+
+### Current User-Facing Features
+
+- Rebranded as `RPCSX for AYN Thor Experiment` with custom icon/banner art.
+- Fork updater prompts are disabled; this repo is source-first, not a public support release.
+- External PS3 folders and ISOs are handled with Thor/SD-card use in mind.
+- Covers and titles are pulled from PS3 metadata where possible.
+- Games with available cheats can show cheat visibility in the library/detail flow.
+- Cheats are shown per game so users can toggle individual cheats instead of digging through patch files.
+- The in-game Home Menu includes quick toggles for cheats, fast forward, FPS display, and save/load state paths.
+- Recommended settings can be enabled per game without making users learn the whole advanced settings tree.
+- PPU, SPU, and shader cache are grouped as "compiled cache" so users understand what is taking space and what is warming up.
+- Internal storage is recommended for compiled cache speed; SD-card cache is offered as a space-saving option with warnings.
+- Thor physical controls are treated as the normal way to play.
+- Debug capture tools exist so a Thor play session can produce logs/screenshots that are easier to inspect later.
+
+### Technical / Experimental Differences
+
+These are mostly for builders, contributors, and future-me:
+
+- RPCSX core source is vendored directly under `app/src/main/cpp/rpcsx` as plain files, so Thor native experiments can live in this one repo.
+- The default Gradle APK bundles this fork's source-built RPCSX core unless `-PbuildBundledRpcsxCore=false` is passed.
+- Automatic upstream UI/core update prompts are disabled through `BuildConfig.FORK_BUILD=true`.
+- External ISO folder import avoids blindly extracting loose ISO contents.
+- Cheat work includes bundled database assets, Artemis/Aldos conversion experiments, RPCS3 patch imports, and patch-hash learning.
+- Recommended settings use a bundled RPCS3 config database snapshot plus a writable local cache.
+- Per-game compiled-cache status reads `cache/cache/TITLEID` and counts PPU, SPU, and RSX shader cache entries.
+- RSX shader cache lives under the same PPU cache tree (`.../ppu-*/shaders_cache/`), so the selected compiled-cache storage covers CPU and shader cache together.
+- Thor startup defaults cap LLVM compile workers, disable full first-boot PPU precompile, enable SPU cache, enable on-disk shader cache, and use a Thor-safe `cortex-a78` LLVM target.
+- The old Android `cortex-a34` startup override is removed because it silently downgrades Thor JIT codegen.
+- The process is pinned to Thor performance cores where Android permits it.
+- Fast Forward 2x uses RPCSX/RPCS3 `Clocks scale`, not a raw uncapped renderer mode. It is experimental and may break timer-sensitive games.
+- System Info includes a first `Thor Feature Doctor` readout: configured LLVM CPU, fallback CPU, AArch64 core names, and Android HWCAP/HWCAP2 feature flags.
+- AYN Thor motion input is wired on the Android side and depends on the core exporting `_rpcsx_overlayPadMotionData`.
 - Android-side performance cleanup has started: less main-thread file probing, faster folder scan queues, safer large-file copy, cached patch status reads, and debounced library saves.
+- Thor-specific performance research lives under `report/`.
 
 ## AYN Thor Target Notes
 
