@@ -66,8 +66,8 @@ function Select-RelevantLogcatLines {
             continue
         }
 
-        foreach ($pid in $Pids) {
-            if ($line -match "\s+$([regex]::Escape($pid))\s+") {
+        foreach ($processId in $Pids) {
+            if ($line -match "\s+$([regex]::Escape($processId))\s+") {
                 $relevant.Add($line)
                 break
             }
@@ -139,8 +139,8 @@ if (Test-AnyPattern $diagnosisLines @("SPU: Building function", "PPU: LLVM")) {
 if (Test-AnyPattern $diagnosisLines @("Failed to lock sudo memory", "mlock")) {
     $diagnosis += "Android memlock warning present. Usually not the immediate crash cause, but keep it in perf notes."
 }
-if (Test-AnyPattern $diagnosisLines @("OutOfMemory", "Cannot allocate", "lowmemorykiller")) {
-    $diagnosis += "Memory pressure signal present. Compare meminfo and cache size before widening features."
+if (Test-AnyPattern $diagnosisLines @("Out of memory", "OutOfMemory", "Cannot allocate", "lowmemorykiller", "report_bad_alloc_error", "memory_commit")) {
+    $diagnosis += "Memory pressure or LLVM allocation failure is present. Lower PPU precompile pressure before retesting."
 }
 if ($diagnosis.Count -eq 0) {
     $diagnosis += "No obvious crash/stall signature in the latest tail. Check activity focus, PID, and whether RPCSX.log is still advancing."

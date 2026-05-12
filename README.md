@@ -175,6 +175,8 @@ For a one-shot capture after a problem is visible:
 
 Debug streams and captures are written to ignored `debug-captures/` folders for local analysis.
 
+Thor defaults currently favor boot survival over all-at-once cache building: first-boot full PPU precompilation is disabled and LLVM compile-thread pressure is kept low because live testing caught memory-heavy titles aborting inside LLVM during precompile.
+
 ## License
 
 This fork keeps the upstream GPLv2 license unless a directory or file contains its own license.

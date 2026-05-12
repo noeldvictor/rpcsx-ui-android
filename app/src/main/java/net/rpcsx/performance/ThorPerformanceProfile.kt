@@ -8,7 +8,7 @@ import net.rpcsx.utils.GeneralSettings
 
 object ThorPerformanceProfile {
     private const val TAG = "ThorPerformanceProfile"
-    private const val PROFILE_VERSION = 3
+    private const val PROFILE_VERSION = 4
     private const val PROFILE_PREF = "thor_compile_profile_version"
     private const val PERFORMANCE_CORE_MASK = 0xF8
 
@@ -56,8 +56,8 @@ object ThorPerformanceProfile {
         val changed = mutableListOf<String>()
         val failed = mutableListOf<String>()
 
-        setSetting("Core@@Max LLVM Compile Threads", "4", "Max LLVM Compile Threads", changed, failed)
-        setSetting("Core@@LLVM Precompilation", "true", "LLVM Precompilation", changed, failed)
+        setSetting("Core@@Max LLVM Compile Threads", "2", "Max LLVM Compile Threads", changed, failed)
+        setSetting("Core@@LLVM Precompilation", "false", "LLVM Precompilation", changed, failed)
         setSetting("Core@@SPU Cache", "true", "SPU Cache", changed, failed)
         setSetting("Core@@Use LLVM CPU", "\"cortex-a78\"", "Use LLVM CPU", changed, failed)
 

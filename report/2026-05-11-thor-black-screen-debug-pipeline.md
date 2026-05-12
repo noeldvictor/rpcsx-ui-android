@@ -145,3 +145,23 @@ Best low-friction additions:
 ## Immediate Odin Sphere Notes
 
 For Odin Sphere, the next useful test is not a core code change yet. Run a clean capture from launch, wait long enough to see whether `BLUS31601INST` appears under `dev_hdd0/game`, then capture again. If it never appears and the game loops on `cellGameDataCheck`, we should inspect the game-data install path and Android save/game-data callbacks, not just PPU performance.
+
+## BLUS31386 PPU Compile Crash
+
+The first live stream test on Thor caught a real native crash during PPU LLVM compilation:
+
+- Title/cache path: `BLUS31386`
+- Crash time: about 4 minutes into PPU precompilation
+- Thread: `PPUW.1.1`
+- Native signal: `SIGABRT`
+- Core failure: `llvm::report_bad_alloc_error` while `llvm::RuntimeDyld` / `MCJIT` was loading generated code
+- RPCSX fatal log: `memory_commit(... errno=12=Out of memory)` at `rpcs3/util/vm_native.cpp:332`
+- Device thermal was high during compile, with fan logs around 84-85 C before the crash
+
+Thor config at the time had:
+
+- `LLVM Precompilation: true`
+- `Max LLVM Compile Threads: 4`
+- visible PPU workers around `PPUW.1.1` through `PPUW.1.3`
+
+Working fix: change Thor startup defaults to avoid full first-boot PPU precompilation. For this fork, prefer `LLVM Precompilation: false` and `Max LLVM Compile Threads: 2` by default, then let games compile on demand or use a future guarded cache builder that can adapt thread count after measuring memory pressure. This is slower/stutterier than full precompile, but it should avoid first-boot native aborts on memory-heavy titles.

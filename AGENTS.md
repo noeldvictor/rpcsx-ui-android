@@ -60,6 +60,7 @@ Useful verification commands:
 - Classify the failure before changing code: native/app crash, black screen while app is alive, or regression after settings/core/cache/driver/cheat changes.
 - For black screen while alive, check whether the title is still compiling, installing game data under `dev_hdd0/game`, waiting on a PS3 dialog, or producing audio without RSX frames.
 - If a live stream is active, do not leave it running forever after the repro. Stop it, inspect the final pull, then commit fixes or notes.
+- A live Thor repro on 2026-05-11 caught `BLUS31386` crashing in PPU LLVM precompile with `memory_commit(... errno=12=Out of memory)` and an LLVM `report_bad_alloc_error` tombstone. Treat first-boot full PPU precompilation as risky on Thor; the fork defaults should prefer `LLVM Precompilation=false` and low compile-thread pressure unless a guarded cache-builder mode is being tested.
 
 ## Device Testing
 
