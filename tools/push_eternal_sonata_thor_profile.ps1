@@ -17,24 +17,22 @@ $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $remoteBackup = "$remoteDir/config_BLUS30161.pre-thor-spurs4-$timestamp.yml"
 
 $profile = @"
-# RPCSX_THOR_AUTO_SETTINGS
-# Source: local Thor Eternal Sonata override
-# Database timestamp: 20260512
+# RPCSX_THOR_SAFE_BOOT_FALLBACK
+# Source: local Thor rollback after SPURS 4 black-screen-alive load hang.
 # Title ID: BLUS30161
-# RPCSX_THOR_PROFILE_OVERRIDE
-# Eternal Sonata performance profile for AYN Thor.
+# This intentionally does not use RPCSX_THOR_AUTO_SETTINGS, so the app will not rewrite it.
 Core:
-  Max SPURS Threads: 4
-  SPU Reservation Busy Waiting Enabled: true
-  SPU Reservation Busy Waiting Percentage: 100
-  Accurate SPU Reservations: false
-  SPU Verification: false
+  Thread Scheduler Mode: Operating System
+  SPU Reservation Busy Waiting Percentage: 0
+  Max SPURS Threads: 6
+  Accurate SPU Reservations: true
+  SPU Verification: true
   Sleep Timers Accuracy: As Host
 Video:
   Frame limit: 30
-  Accurate ZCULL stats: false
-  Relaxed ZCULL Sync: true
-  Multithreaded RSX: true
+  Accurate ZCULL stats: true
+  Relaxed ZCULL Sync: false
+  Multithreaded RSX: false
 "@
 
 $tempFile = Join-Path ([System.IO.Path]::GetTempPath()) "config_BLUS30161.thor.yml"

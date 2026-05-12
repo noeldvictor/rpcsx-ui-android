@@ -94,7 +94,7 @@ Not safely imported yet:
 
 ## Fix Slice Landed From This Report
 
-This slice makes the Thor runtime less self-sabotaging during FPS testing:
+This slice made the Thor runtime less self-sabotaging during FPS testing:
 
 - `cellSysutilGetSystemParamInt` logging is demoted from warning to trace.
 - Android PPU syscall stats are disabled by default and gated by `debug.rpcsx.thor.syscall_stats`.
@@ -104,18 +104,7 @@ This slice makes the Thor runtime less self-sabotaging during FPS testing:
   - `Normal`: logcat info, syscall stats off
   - `Verbose`: logcat verbose, syscall stats on
   - `Status`: print current props
-- Thor compile profile bumped to v9 and now sets `Core -> Max SPURS Threads = 4`.
-- Eternal Sonata `BLUS30161` Thor override now sets:
-  - `Core -> Max SPURS Threads = 4`
-  - `Core -> SPU Reservation Busy Waiting Enabled = true`
-  - `Core -> SPU Reservation Busy Waiting Percentage = 100`
-  - `Core -> Accurate SPU Reservations = false`
-  - `Core -> SPU Verification = false`
-  - `Core -> Sleep Timers Accuracy = As Host`
-  - `Video -> Frame limit = 30`
-  - `Video -> Accurate ZCULL stats = false`
-  - `Video -> Relaxed ZCULL Sync = true`
-  - `Video -> Multithreaded RSX = true`
+- The attempted Thor SPURS 4 profile was later rolled back after it caused a black-screen-alive load hang.
 
 ## Follow-Up: Stale Per-Game Config Found
 
@@ -129,7 +118,18 @@ The first retest still showed 10-13 FPS because the active device file `config/c
 - `Accurate ZCULL stats: true`
 - `Multithreaded RSX: false`
 
-This means the first retest did not actually measure the intended SPURS 4 / busy-wait / reduced-accuracy profile. Replace that stale custom config with `tools/push_eternal_sonata_thor_profile.ps1`, relaunch the game, then retest FPS.
+This means the first retest did not actually measure the intended SPURS 4 / busy-wait / reduced-accuracy profile.
+
+## Follow-Up: SPURS 4 Black-Screen Rollback
+
+After forcing a managed SPURS 4 profile, Eternal Sonata became extremely slow while loading and then showed a black-screen-alive state. The process did not crash; the log showed ongoing SPU loop compilation for minutes, often on `CellSpursKernel0`, and CPU usage dropped into the high-20% range. This makes SPURS 4 unsafe as a default game profile on Thor.
+
+Rollback action:
+
+- Restored the last known booting full custom config on device from `config_BLUS30161.pre-thor-spurs4-20260512-181002.yml`.
+- Changed `tools/push_eternal_sonata_thor_profile.ps1` into a safe boot fallback with `Max SPURS Threads: 6`, OS scheduler, reservation busy-wait percentage 0, accurate SPU reservations true, SPU verification true, accurate ZCULL true, relaxed ZCULL false, and multithreaded RSX false.
+- The fallback intentionally does not use the `RPCSX_THOR_AUTO_SETTINGS` header, so the app will not rewrite it on launch.
+- Future performance work should use reduced-loop/SPU compiler instrumentation rather than SPURS 4 as a default.
 
 ## Why Cap SPURS At 4 First
 

@@ -33,21 +33,11 @@ object GameSettingsDatabase {
     private val thorProfileOverrides = mapOf(
         "BLUS30161" to """
             # RPCSX_THOR_PROFILE_OVERRIDE
-            # Eternal Sonata performance profile for AYN Thor.
+            # Eternal Sonata stability profile for AYN Thor.
             # Community note: 30 FPS avoids common battle/menu crash paths.
-            # Cap SPURS to reduce SPU oversubscription on the Snapdragon 8 Gen 2 affinity split.
-            Core:
-              Max SPURS Threads: 4
-              SPU Reservation Busy Waiting Enabled: true
-              SPU Reservation Busy Waiting Percentage: 100
-              Accurate SPU Reservations: false
-              SPU Verification: false
-              Sleep Timers Accuracy: As Host
+            # Do not cap SPURS here; SPURS 4 caused a black-screen-alive load hang on Thor.
             Video:
               Frame limit: 30
-              Accurate ZCULL stats: false
-              Relaxed ZCULL Sync: true
-              Multithreaded RSX: true
         """.trimIndent()
     )
 
