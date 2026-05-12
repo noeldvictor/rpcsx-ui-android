@@ -33,9 +33,12 @@ object GameSettingsDatabase {
     private val thorProfileOverrides = mapOf(
         "BLUS30161" to """
             # RPCSX_THOR_PROFILE_OVERRIDE
-            # Eternal Sonata stability profile for AYN Thor.
+            # Eternal Sonata performance profile for AYN Thor.
             # Community note: 30 FPS avoids common battle/menu crash paths.
-            # WCB/SPURS/thread/audio workarounds are excluded on Thor after local crash/FPS testing.
+            # Cap SPURS to reduce SPU oversubscription on the Snapdragon 8 Gen 2 affinity split.
+            Core:
+              Max SPURS Threads: 4
+              Sleep Timers Accuracy: As Host
             Video:
               Frame limit: 30
         """.trimIndent()

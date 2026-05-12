@@ -58,9 +58,14 @@
 #include "util/init_mutex.hpp"
 #include "util/sysinfo.hpp"
 #include <algorithm>
+#include <atomic>
 #include <deque>
 #include <optional>
 #include <thread>
+
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
 
 #if defined(ARCH_X64)
 #ifdef _MSC_VER
@@ -79,6 +84,32 @@ void set_rsx_yield_flag() noexcept;
 
 using spu_rdata_t = decltype(spu_thread::rdata);
 extern u32 compute_rdata_hash32(const spu_rdata_t &_src);
+
+static bool ppu_syscall_stats_enabled() noexcept {
+#ifdef __ANDROID__
+  static std::atomic<u64> next_check = 0;
+  static std::atomic<bool> enabled = false;
+
+  const u64 now = get_system_time();
+  u64 expected = next_check.load(std::memory_order_relaxed);
+
+  if (now >= expected &&
+      next_check.compare_exchange_strong(expected, now + 1'000'000,
+                                         std::memory_order_relaxed)) {
+    char value[PROP_VALUE_MAX]{};
+    const int length =
+        __system_property_get("debug.rpcsx.thor.syscall_stats", value);
+    const bool next_enabled =
+        length > 0 && (value[0] == '1' || value[0] == 't' ||
+                       value[0] == 'T' || value[0] == 'y' || value[0] == 'Y');
+    enabled.store(next_enabled, std::memory_order_relaxed);
+  }
+
+  return enabled.load(std::memory_order_relaxed);
+#else
+  return true;
+#endif
+}
 
 template <>
 void fmt_class_string<ppu_syscall_code>::format(std::string &out, u64 arg) {
@@ -1533,7 +1564,9 @@ extern void ppu_execute_syscall(ppu_thread &ppu, u64 code) {
   }
 
   if (code < g_ppu_syscall_table.size()) {
-    g_fxo->get<named_thread<ppu_syscall_usage>>().stat[code]++;
+    if (ppu_syscall_stats_enabled()) {
+      g_fxo->get<named_thread<ppu_syscall_usage>>().stat[code]++;
+    }
 
     if (const auto func = g_ppu_syscall_table[code].first) {
 #ifdef __APPLE__

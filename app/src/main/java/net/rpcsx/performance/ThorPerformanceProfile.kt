@@ -8,7 +8,7 @@ import net.rpcsx.utils.GeneralSettings
 
 object ThorPerformanceProfile {
     private const val TAG = "ThorPerformanceProfile"
-    private const val PROFILE_VERSION = 8
+    private const val PROFILE_VERSION = 9
     private const val PROFILE_PREF = "thor_compile_profile_version"
     private const val PERFORMANCE_CORE_MASK = 0xF8
 
@@ -60,6 +60,7 @@ object ThorPerformanceProfile {
         setSetting("Core@@LLVM Precompilation", "false", "LLVM Precompilation", changed, failed)
         setSetting("Core@@SPU Cache", "true", "SPU Cache", changed, failed)
         setSetting("Core@@SPU Decoder", "\"Recompiler (LLVM)\"", "SPU Decoder", changed, failed)
+        setSetting("Core@@Max SPURS Threads", "4", "Max SPURS Threads", changed, failed)
         setSetting("Core@@SPU Reservation Busy Waiting Enabled", "true", "SPU Reservation Busy Waiting", changed, failed)
         setSetting("Core@@SPU Reservation Busy Waiting Percentage", "100", "SPU Reservation Busy Waiting Percentage", changed, failed)
         setSetting("Core@@Use LLVM CPU", "\"cortex-a78\"", "Use LLVM CPU", changed, failed)

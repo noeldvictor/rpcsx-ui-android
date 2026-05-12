@@ -82,6 +82,9 @@ Useful verification commands:
 ## Thor Debug Capture Workflow
 
 - For black screens, crashes, or weird per-game boot behavior, use the Thor debug tools before guessing.
+- Control device logging with `.\tools\set_thor_logging.ps1 -Mode Quiet|Normal|Verbose|Status`. Use `Quiet` for FPS/performance sweeps, `Normal` for ordinary crash/boot repros, and `Verbose` only for short targeted captures because it enables PPU syscall usage stats.
+- The logging tool sets Android properties over ADB: `debug.rpcsx.thor.logcat`, `debug.rpcsx.thor.syscall_stats`, `log.tag.RPCS3`, and `log.tag.RPCSX-UI`. The bundled core polls the Thor properties at runtime, so Codex can turn logcat/syscall-stat pressure on or off without rebuilding after this APK is installed.
+- Do not leave `debug.rpcsx.thor.syscall_stats=1` during FPS testing. Eternal Sonata can hit hundreds of thousands of timer/semaphore/SPU-group syscalls in a few minutes, and stats/logging can become its own benchmark poison.
 - Live debug loop while the user plays: `.\tools\start_thor_debug_stream.ps1 -ClearLogcat -Launch -Label GAME`, then repeatedly run `.\tools\summarize_thor_debug_stream.ps1 -Latest` from Codex while the user reproduces the issue, then `.\tools\stop_thor_debug_stream.ps1 -Latest`.
 - Live streams write to ignored `debug-captures/*-stream/` folders. Watch `summary-latest.md`, `logcat-live.txt`, `rpcsx-live-tail.txt`, and `live-summary/now-*.txt`.
 - Newer live streams also write `memory-live.txt`; use it to catch RSS/swap growth before Android's low-memory killer takes the app down.
@@ -91,6 +94,7 @@ Useful verification commands:
 - Classify the failure before changing code: native/app crash, black screen while app is alive, or regression after settings/core/cache/driver/cheat changes.
 - For black screen while alive, check whether the title is still compiling, installing game data under `dev_hdd0/game`, waiting on a PS3 dialog, or producing audio without RSX frames.
 - If a live stream is active, do not leave it running forever after the repro. Stop it, inspect the final pull, then commit fixes or notes.
+- A 2026-05-12 Eternal Sonata live stream at roughly 10-13 FPS showed no OOM/crash, but did show `rsx::thread` plus six SPU threads hot, heavy `sys_timer_usleep`, `sys_semaphore_wait/post`, `sys_event_queue_receive`, and repeated `sys_spu_thread_group_start/join`. Treat this as a SPURS/RSX contention profile first, not a basic boot failure.
 - A live Thor repro on 2026-05-11 caught `BLUS31386` crashing in PPU LLVM precompile with `memory_commit(... errno=12=Out of memory)` and an LLVM `report_bad_alloc_error` tombstone. Treat first-boot full PPU precompilation as risky on Thor; the fork defaults should prefer `LLVM Precompilation=false` and low compile-thread pressure unless a guarded cache-builder mode is being tested.
 - A later 2026-05-11 repro showed Android LMK killing `net.rpcsx.easy` near 6 GB RSS while a direct ISO game opened multi-GB `/dev_bdvd/PS3_GAME/USRDIR/archives/*.files` payloads. The vendored ISO device must stream file reads; do not reintroduce whole-file ISO reads or whole-file ISO extraction copies for large game data.
 

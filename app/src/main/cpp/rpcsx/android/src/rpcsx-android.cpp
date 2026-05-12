@@ -79,6 +79,7 @@
 #include <span>
 #include <string>
 #include <sys/resource.h>
+#include <sys/system_properties.h>
 #include <thread>
 #include <vector>
 
@@ -285,6 +286,95 @@ cfg_input_configurations g_cfg_input_configs;
 
 LOG_CHANNEL(rpcsx_android, "ANDROID");
 
+static bool android_property_enabled(const char* name, bool fallback) noexcept {
+  char value[PROP_VALUE_MAX]{};
+  const int length = __system_property_get(name, value);
+
+  if (length <= 0) {
+    return fallback;
+  }
+
+  switch (value[0]) {
+  case '1':
+  case 't':
+  case 'T':
+  case 'y':
+  case 'Y':
+    return true;
+  case '0':
+  case 'f':
+  case 'F':
+  case 'n':
+  case 'N':
+    return false;
+  default:
+    return fallback;
+  }
+}
+
+static int android_property_log_priority(const char* name, int fallback) noexcept {
+  char value[PROP_VALUE_MAX]{};
+  const int length = __system_property_get(name, value);
+
+  if (length <= 0) {
+    return fallback;
+  }
+
+  switch (value[0]) {
+  case 'V':
+  case 'v':
+    return ANDROID_LOG_VERBOSE;
+  case 'D':
+  case 'd':
+    return ANDROID_LOG_DEBUG;
+  case 'I':
+  case 'i':
+    return ANDROID_LOG_INFO;
+  case 'W':
+  case 'w':
+    return ANDROID_LOG_WARN;
+  case 'E':
+  case 'e':
+    return ANDROID_LOG_ERROR;
+  case 'F':
+  case 'f':
+  case 'A':
+  case 'a':
+    return ANDROID_LOG_FATAL;
+  case 'S':
+  case 's':
+    return ANDROID_LOG_SILENT;
+  default:
+    return fallback;
+  }
+}
+
+static bool android_logcat_allows(int prio) noexcept {
+  static std::atomic<u64> next_check = 0;
+  static std::atomic<bool> enabled = true;
+  static std::atomic<int> min_priority = ANDROID_LOG_VERBOSE;
+
+  const u64 now = get_system_time();
+  u64 expected = next_check.load(std::memory_order_relaxed);
+
+  if (now >= expected &&
+      next_check.compare_exchange_strong(expected, now + 1'000'000,
+                                         std::memory_order_relaxed)) {
+    enabled.store(android_property_enabled("debug.rpcsx.thor.logcat", true),
+                  std::memory_order_relaxed);
+    min_priority.store(
+        android_property_log_priority("log.tag.RPCS3", ANDROID_LOG_VERBOSE),
+        std::memory_order_relaxed);
+  }
+
+  if (!enabled.load(std::memory_order_relaxed)) {
+    return false;
+  }
+
+  const int threshold = min_priority.load(std::memory_order_relaxed);
+  return threshold < ANDROID_LOG_SILENT && prio >= threshold;
+}
+
 struct LogListener : logs::listener {
   LogListener() { logs::listener::add(this); }
 
@@ -316,6 +406,10 @@ struct LogListener : logs::listener {
     case logs::level::trace:
       prio = ANDROID_LOG_VERBOSE;
       break;
+    }
+
+    if (!android_logcat_allows(prio)) {
+      return;
     }
 
     __android_log_write(prio, "RPCS3", text.c_str());
