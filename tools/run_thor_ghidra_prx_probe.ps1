@@ -88,9 +88,9 @@ $localPrx = Join-Path $outDir "$SafeModule-prog.prx"
 
 $scriptPath = Join-Path $PSScriptRoot "ghidra_scripts"
 $projectDir = Join-Path $outDir "projects"
+New-Item -ItemType Directory -Force -Path $projectDir | Out-Null
 $projectName = "Thor_$SafeModule"
 $decompileOut = Join-Path $outDir "$SafeModule-decompile.txt"
-New-Item -ItemType Directory -Force -Path $projectDir | Out-Null
 
 $ghidraArgs = @(
     $projectDir,

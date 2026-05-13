@@ -1649,25 +1649,23 @@ bool lv2_obj::sleep(cpu_thread &cpu, const u64 timeout) {
   }
 
   if (cpu.get_class() == thread_class::ppu) {
-    auto &ppu = static_cast<ppu_thread &>(cpu);
+    if (u32 addr = static_cast<ppu_thread &>(cpu).res_notify) {
+      static_cast<ppu_thread &>(cpu).res_notify = 0;
 
-    if (u32 addr = ppu.res_notify) {
-      ppu.res_notify = 0;
-      ppu.res_notify_postpone_streak = 0;
-
-      if (ppu.res_notify_time + 128 != (vm::reservation_acquire(addr) & -128)) {
+      if (static_cast<ppu_thread &>(cpu).res_notify_time !=
+          vm::reservation_notifier_count_index(addr).second) {
         // Ignore outdated notification request
       } else if (auto it = std::find(g_to_notify, std::end(g_to_notify),
                                      std::add_pointer_t<const void>{});
                  it != std::end(g_to_notify)) {
-        *it++ = vm::reservation_notifier_notify(addr, ppu.res_notify_time, true);
+        *it++ = vm::reservation_notifier_notify(addr, true);
 
         if (it < std::end(g_to_notify)) {
           // Null-terminate the list if it ends before last slot
           *it = nullptr;
         }
       } else {
-        vm::reservation_notifier_notify(addr, ppu.res_notify_time);
+        vm::reservation_notifier_notify(addr);
       }
     }
   }
@@ -1698,21 +1696,21 @@ bool lv2_obj::awake(cpu_thread *thread, s32 prio) {
   if (ppu_thread *ppu = cpu_thread::get_current<ppu_thread>()) {
     if (u32 addr = ppu->res_notify) {
       ppu->res_notify = 0;
-      ppu->res_notify_postpone_streak = 0;
 
-      if (ppu->res_notify_time + 128 != (vm::reservation_acquire(addr) & -128)) {
+      if (ppu->res_notify_time !=
+          vm::reservation_notifier_count_index(addr).second) {
         // Ignore outdated notification request
       } else if (auto it = std::find(g_to_notify, std::end(g_to_notify),
                                      std::add_pointer_t<const void>{});
                  it != std::end(g_to_notify)) {
-        *it++ = vm::reservation_notifier_notify(addr, ppu->res_notify_time, true);
+        *it++ = vm::reservation_notifier_notify(addr, true);
 
         if (it < std::end(g_to_notify)) {
           // Null-terminate the list if it ends before last slot
           *it = nullptr;
         }
       } else {
-        vm::reservation_notifier_notify(addr, ppu->res_notify_time);
+        vm::reservation_notifier_notify(addr);
       }
     }
   }
