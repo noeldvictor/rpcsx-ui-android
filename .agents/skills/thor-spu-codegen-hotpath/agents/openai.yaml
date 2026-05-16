@@ -1,0 +1,4 @@
+interface:
+  display_name: "Thor SPU Hotpath"
+  short_description: "Probe SPU codegen hot paths"
+  default_prompt: "Investigate an Eternal Sonata SPU, DMA, LLVM, or Ghidra hot path with correctness gates."

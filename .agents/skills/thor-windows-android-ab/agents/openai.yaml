@@ -1,0 +1,4 @@
+interface:
+  display_name: "Thor Windows Android AB"
+  short_description: "Compare Windows and Thor runs"
+  default_prompt: "Run a normalized Windows lab versus Thor Android comparison for an Eternal Sonata speed experiment."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Thor Experiment Ledger"
+  short_description: "Record Thor speed evidence"
+  default_prompt: "Update the repo experiment ledger with captures, speed results, rollback, and next actions."

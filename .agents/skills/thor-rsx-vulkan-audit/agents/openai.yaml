@@ -1,0 +1,4 @@
+interface:
+  display_name: "Thor RSX Vulkan Audit"
+  short_description: "Audit RSX Vulkan bottlenecks"
+  default_prompt: "Audit a Thor RSX/Vulkan bottleneck and run a gated, visually checked experiment."

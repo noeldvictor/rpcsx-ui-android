@@ -1,0 +1,4 @@
+interface:
+  display_name: "Thor Scene Route"
+  short_description: "Route Thor scenes repeatably"
+  default_prompt: "Route Eternal Sonata on Thor to field, menu, or battle with repo tools and screenshot proof."
