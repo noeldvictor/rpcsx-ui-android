@@ -1,0 +1,4 @@
+interface:
+  display_name: "Thor ADB Operator"
+  short_description: "Safe ADB workflows for Thor"
+  default_prompt: "Use $thor-adb-operator to find adb, verify connected Thor devices, collect Android package/window/logcat metadata, and run safe ADB operations for emulator debugging."

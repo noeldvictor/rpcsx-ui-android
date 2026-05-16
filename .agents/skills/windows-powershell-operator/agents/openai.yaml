@@ -1,0 +1,4 @@
+interface:
+  display_name: "Windows PowerShell Operator"
+  short_description: "Repo-safe PowerShell workflows"
+  default_prompt: "Use $windows-powershell-operator to run Windows PowerShell commands safely, capture command output and git state, handle paths with spaces, and avoid fragile shell patterns in this repo."
