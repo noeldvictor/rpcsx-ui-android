@@ -1,0 +1,4 @@
+interface:
+  display_name: "Thor Screenshot Burst"
+  short_description: "Thor screenshots and flicker bursts"
+  default_prompt: "Use $thor-screenshot-burst to capture still or burst screenshots from AYN Thor for flicker, black spots, texture corruption, and correctness-locked Eternal Sonata speed experiments."
