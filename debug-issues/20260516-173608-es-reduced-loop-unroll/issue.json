@@ -1,0 +1,50 @@
+﻿{
+    "id":  "20260516-173608-es-reduced-loop-unroll",
+    "created":  "2026-05-16T17:36:08.7859750-04:00",
+    "action":  "Start",
+    "label":  "es-reduced-loop-unroll",
+    "symptom":  "",
+    "package":  "net.rpcsx.easy",
+    "profile":  "default",
+    "profilePath":  "C:\\Users\\leanerdesigner\\Documents\\New project 6\\rpcsx-ui-android\\debug-profiles\\default.json",
+    "mode":  "Normal",
+    "status":  "failed",
+    "failure":  "Cannot process argument transformation on parameter \u0027PollSeconds\u0027. Cannot convert value \"net.rpcsx.easy\" to type \"System.Int32\". Error: \"Input string was not in a correct format.\"",
+    "settings":  {
+                     "logcatLines":  12000,
+                     "summaryTailLines":  80,
+                     "streamPollSeconds":  3,
+                     "postMode":  "Quiet",
+                     "postModeApplied":  ""
+                 },
+    "repo":  {
+                 "head":  "a9707eff1",
+                 "branch":  "codex/eternal-sonata-thor-speed",
+                 "status":  "M app/src/main/cpp/rpcsx/rpcs3/Emu/CPU/CPUTranslator.h\n M app/src/main/cpp/rpcsx/rpcs3/Emu/Cell/SPUCommonRecompiler.cpp\n M app/src/main/cpp/rpcsx/rpcs3/Emu/Cell/SPULLVMRecompiler.cpp\n M app/src/main/cpp/rpcsx/rpcs3/Emu/Cell/SPURecompiler.h\n M app/src/main/cpp/rpcsx/rpcs3/Emu/Cell/SPUThread.cpp\n M debug-experiments/20260516-eternal-sonata-thor-field-hotpath-results.md\n M tools/set_thor_logging.ps1"
+             },
+    "apk":  {
+
+            },
+    "device":  {
+                   "serial":  "c3ca0370",
+                   "model":  "AYN Thor",
+                   "product":  "kalama",
+                   "board":  "kalama",
+                   "packagePath":  "package:/data/app/~~1qgpyGhGYzoCAEid7GvTzg==/net.rpcsx.easy-s3FKYHfn-I0p2ElTAlaaUg==/base.apk",
+                   "propsFile":  "C:\\Users\\leanerdesigner\\Documents\\New project 6\\rpcsx-ui-android\\debug-issues\\20260516-173608-es-reduced-loop-unroll\\device-props.txt",
+                   "appPrefsFile":  "C:\\Users\\leanerdesigner\\Documents\\New project 6\\rpcsx-ui-android\\debug-issues\\20260516-173608-es-reduced-loop-unroll\\app-prefs.txt"
+               },
+    "captures":  [
+
+                 ],
+    "summaries":  [
+
+                  ],
+    "quickRead":  [
+
+                  ],
+    "ghidra":  [
+
+               ],
+    "nextAction":  "Run failed: Cannot process argument transformation on parameter \u0027PollSeconds\u0027. Cannot convert value \"net.rpcsx.easy\" to type \"System.Int32\". Error: \"Input string was not in a correct format.\""
+}
