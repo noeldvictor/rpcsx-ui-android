@@ -504,7 +504,7 @@ switch ($Mode) {
 }
 
 if ($Mode -ne "Status" -and $Mode -ne "RsxDmaHostFence") {
-    Set-DeviceProp "debug.rpcsx.thor.rsx_dma_fence" "all"
+    Set-DeviceProp "debug.rpcsx.thor.rsx_dma_fence" "off"
 }
 
 if ($Mode -ne "Status" -and $Mode -ne "RsxDepthFeedback" -and $Mode -notlike "RsxTextureBarrierSkip*") {

@@ -30,6 +30,8 @@ param(
     [string]$AndroidInputMode = "Direct",
     [ValidateSet("Keep", "Quiet", "Normal", "Verbose", "ReducedLoop", "ReducedLoopEmit", "ReducedLoopEmitQuiet", "ReducedLoopEmitU4", "ReducedLoopEmitU4Quiet", "ReducedLoopEmitU8", "ReducedLoopEmitU8Quiet", "SpursProbe", "SemaProfile", "SemaFast", "DmaProfile", "DmaVerify", "RsxAuditor", "RsxDmaHostFence", "RsxDepthFeedback", "RsxTextureBarrierSkipColor", "RsxTextureBarrierSkipDepth", "RsxTextureBarrierSkipAll", "FastBusyWaitLight", "FastBusyWait", "FastBusyWaitAggressive", "WaitProfiler", "WaitProfilerVerbose", "GetllarProbe", "GetllarShort", "GetllarTiny", "GetllarYield8", "GetllarNoRsxLock")]
     [string]$AndroidLogMode = "Keep",
+    [ValidateSet("Keep", "DefaultF8", "AllThreadsFF", "RsxPrimeSpuNonPrimePpuA715")]
+    [string]$AndroidRuntimeAffinityMode = "Keep",
     [string]$AndroidInputProfile = "",
     [int]$AndroidRoutePostWaitSeconds = 5,
     [string]$Driver = "stock-qualcomm",
@@ -146,6 +148,14 @@ function Set-AndroidLogMode {
     & (Join-Path $PSScriptRoot "set_thor_logging.ps1") -Mode $AndroidLogMode
 }
 
+function Set-AndroidRuntimeAffinity {
+    if ($AndroidRuntimeAffinityMode -eq "Keep") {
+        return
+    }
+
+    & (Join-Path $PSScriptRoot "set_thor_runtime_affinity.ps1") -Mode $AndroidRuntimeAffinityMode -Package $Package
+}
+
 function Invoke-DeviceSnapshot {
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $safe = Get-SpeedLabel
@@ -197,6 +207,7 @@ function Invoke-AndroidSceneCapture {
         "- Package: $Package",
         "- Duration seconds: $AndroidSceneSeconds",
         "- Android log mode: $AndroidLogMode",
+        "- Android runtime affinity mode: $AndroidRuntimeAffinityMode",
         "- Perfetto: $(-not $NoPerfetto)",
         "- Screenrecord: $(-not $NoScreenRecord)",
         "- Capture dir: $captureDir",
@@ -208,6 +219,7 @@ function Invoke-AndroidSceneCapture {
     Invoke-SpeedAdbText -CaptureDir $captureDir -Name "pre-pid.txt" -AdbArgs @("shell", "pidof $Package") -AllowFailure | Out-Null
     Invoke-SpeedAdbText -CaptureDir $captureDir -Name "pre-top-threads.txt" -AdbArgs @("shell", "top -H -b -n 1 | grep -E '$Package|rpcsx|RPCS3|PPU|SPU|RSX|CPU'") -AllowFailure | Out-Null
     Invoke-SpeedAdbText -CaptureDir $captureDir -Name "pre-gfxinfo.txt" -AdbArgs @("shell", "dumpsys gfxinfo $Package") -AllowFailure | Out-Null
+    Set-AndroidRuntimeAffinity
 
     $screenProcess = $null
     if (-not $NoScreenRecord) {

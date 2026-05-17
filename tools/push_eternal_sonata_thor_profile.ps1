@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("SafeSpeed", "OfficialMinimal", "NeutralCore", "RsxThreaded", "OldNeutral", "AltNeutral", "AltPpuPrime", "AltSpuWide")]
+    [ValidateSet("SafeSpeed", "OfficialMinimal", "NeutralCore", "RsxThreaded", "OldNeutral", "AltNeutral", "AltPpuPrime", "AltSpuWide", "RocknixFast", "RocknixCorrect")]
     [string]$Mode = "SafeSpeed",
     [ValidateRange(512, 8192)]
     [int]$VramMb = 3072,
@@ -62,7 +62,51 @@ if ($Mode -in @("OldNeutral", "AltNeutral", "AltPpuPrime", "AltSpuWide")) {
 "@
 }
 
-if ($Mode -eq "OfficialMinimal") {
+if ($Mode -eq "RocknixFast" -or $Mode -eq "RocknixCorrect") {
+    $writeColorBuffers = if ($Mode -eq "RocknixCorrect") { "true" } else { "false" }
+    $wcbNote = if ($Mode -eq "RocknixCorrect") { "WCB on for correctness comparison." } else { "WCB off to test the likely Rocknix-fast path; visual correctness must be checked." }
+
+    $profile = @"
+# RPCSX_THOR_ROCKNIX_MIRROR_PROFILE
+# Source: Rocknix SM8550 RPCS3 preset / launcher delta investigation.
+# Title ID: BLUS30161
+# $wcbNote
+# Android-safe mirror: keeps VRAM capped instead of Rocknix's effectively uncapped Linux value.
+Core:
+  Thread Scheduler Mode: Operating System
+  LLVM Precompilation: false
+  SPU Reservation Busy Waiting Percentage: 0
+  SPU Reservation Busy Waiting Enabled: false
+  SPU GETLLAR Busy Waiting Percentage: 100
+  Max SPURS Threads: 6
+  Accurate SPU Reservations: true
+  SPU Verification: true
+  Sleep Timers Accuracy: As Host
+  XFloat Accuracy: Approximate
+
+Video:
+  Renderer: Vulkan
+  Resolution: 720x480
+  Aspect ratio: 16:9
+  Frame limit: 30
+  Shader Precision: Low
+  Write Color Buffers: $writeColorBuffers
+  Accurate ZCULL stats: false
+  Relaxed ZCULL Sync: true
+  Multithreaded RSX: false
+  Disable On-Disk Shader Cache: false
+  Resolution Scale: 50
+  Shader Compiler Threads: $ShaderCompilerThreads
+  Driver Wake-Up Delay: 1
+  Vulkan:
+    Asynchronous Texture Streaming 2: false
+    Asynchronous Queue Scheduler: Safe
+    VRAM allocation limit (MB): $VramMb
+  Performance Overlay:
+    Enabled: true
+    Detail level: Minimal
+"@
+} elseif ($Mode -eq "OfficialMinimal") {
     $profile = @"
 # RPCSX_THOR_OFFICIAL_MINIMAL_PROFILE
 # Source: local Thor Eternal Sonata compatibility baseline.
