@@ -1,8 +1,9 @@
 # Rocknix 26 FPS Delta - Eternal Sonata Field
 
 - Created: 2026-05-16
-- Target: explain how AYN Thor Rocknix/RPCS3 ARM can show about 26 FPS in the
-  Eternal Sonata field while the Android RPCSX/RPCS3 fork is around 16-19 FPS.
+- Target: explain how AYN Thor Rocknix/RPCS3 ARM can show about 26 FPS at 720p
+  in the Eternal Sonata field while the Android RPCSX/RPCS3 fork is around
+  16-21 FPS.
 - Local Android snapshot:
   `debug-captures/rocknix-delta-current-android/`
 - Rocknix package snapshot:
@@ -19,11 +20,13 @@ Recent Android field captures:
 | Rocknix-correct mirror, stock Qualcomm | `18.49` | `18.49` |
 | Rocknix-fast mirror, stock Qualcomm, WCB off | `19.17` | `19.17` |
 | Rocknix-correct mirror, Android Turnip A7xx | `12.37` | `12.37` |
-| Rocknix video target | about `26` | `26.00` |
+| Rocknix AYN Thor video target at 720p | about `26` | `26.00` |
 
 Rocknix target is therefore about `+36-37%` over our best reduced-loop Android
 field samples and about `+62%` over stock quiet Android. The matched
-Rocknix-style Android config did not close the gap.
+low-resolution Rocknix preset mirror did not close the gap. Because the video
+target is 720p, the low-res Android miss makes resolution/fill-rate an even
+weaker explanation for the gap.
 
 ## Rocknix Reference
 
@@ -88,7 +91,7 @@ So our effective game config is still likely:
 - relaxed ZCULL `false`
 - 3 GB VRAM cap
 
-Rocknix's SM8550 preset starts much lighter:
+Rocknix's SM8550 preset starts much lighter by default:
 
 - `Resolution: 720x480`
 - `Resolution Scale: 50`
@@ -101,8 +104,12 @@ Rocknix's SM8550 preset starts much lighter:
 - `Driver Wake-Up Delay: 1`
 - VRAM allocation limit `65536`
 
-This was the first thing tested, and it was not enough. A Rocknix-style Android
-mirror with `720x480`, `Resolution Scale: 50`, `Shader Precision: Low`,
+Important correction: the video target is 720p, not the low-resolution preset
+default. The low-res mirror was still useful as a diagnostic: if Android could
+not approach 26 FPS even at 480p/scale-50, then the main gap is not pixel fill.
+
+That diagnostic was tested and was not enough. A Rocknix-style Android mirror
+with `720x480`, `Resolution Scale: 50`, `Shader Precision: Low`,
 `Relaxed ZCULL Sync: true`, frame limit `30`, and u4 reduced-loop logging
 still landed at about `18.49 FPS` with WCB on and about `19.17 FPS` with WCB
 off. That strongly suggests the field scene is not dominated by pixel fill,
@@ -191,6 +198,8 @@ Run each cell as field first, then battle/menu only if field is visually sane.
 | ID | Config | Driver | Core props | Expected use |
 | --- | --- | --- | --- | --- |
 | `android-current-u4` | current NeutralCore | stock Qualcomm | `ReducedLoopEmitU4Quiet` | baseline around 19 FPS |
+| `rocknix-720-correct-stock` | 720p, scale 100, low shader, WCB on, relaxed ZCULL | stock Qualcomm | `ReducedLoopEmitU4Quiet` | direct Android-vs-Rocknix-video comparison |
+| `rocknix-720-fast-stock` | same but WCB off | stock Qualcomm | `ReducedLoopEmitU4Quiet` | 720p WCB diagnostic only |
 | `rocknix-fast-stock` | 480p, scale 50, low shader, WCB off, relaxed ZCULL | stock Qualcomm | `ReducedLoopEmitU4Quiet` | isolate config ceiling |
 | `rocknix-correct-stock` | same but WCB on | stock Qualcomm | `ReducedLoopEmitU4Quiet` | correctness-locked config test |
 | `rocknix-fast-turnip` | same as fast | Android Turnip A7xx | `ReducedLoopEmitU4Quiet` | isolate Android driver delta |
@@ -234,8 +243,9 @@ Acceptance:
 - Screenshot/video proof.
 - Note black spots, texture holes, flicker, menu corruption.
 - If WCB off is faster but visually broken, do not count it as a win.
-- If low-res/low-precision field hits 24-26 with correct visuals, then our
-  next job is finding which quality knob costs the missing frames.
+- Because the Rocknix target is 720p, low-res/low-precision wins are diagnostic
+  only. A real match needs the 720p profile unless it is explicitly labeled as
+  a lower-quality compromise.
 
 ## Current Bet
 
@@ -257,3 +267,8 @@ pressure, GPU frequency/busy counters, and exact driver/runtime logs. On the
 Android side, every new `AndroidScene` / `AndroidRouteScene` capture now needs
 CPU/GPU frequency and thread-affinity snapshots so we can see whether the field
 is parked on bad cores, starving RSX, or stalling inside the driver.
+
+Immediate correction from the user: treat the Rocknix result as a real 720p AYN
+Thor target, not a 480p preset result. Added explicit `Rocknix720Correct` and
+`Rocknix720Fast` push-profile modes so future Android comparisons can target
+the video conditions directly.

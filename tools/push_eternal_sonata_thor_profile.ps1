@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("SafeSpeed", "OfficialMinimal", "NeutralCore", "RsxThreaded", "OldNeutral", "AltNeutral", "AltPpuPrime", "AltSpuWide", "RocknixFast", "RocknixCorrect")]
+    [ValidateSet("SafeSpeed", "OfficialMinimal", "NeutralCore", "RsxThreaded", "OldNeutral", "AltNeutral", "AltPpuPrime", "AltSpuWide", "RocknixFast", "RocknixCorrect", "Rocknix720Fast", "Rocknix720Correct")]
     [string]$Mode = "SafeSpeed",
     [ValidateRange(512, 8192)]
     [int]$VramMb = 3072,
@@ -62,14 +62,20 @@ if ($Mode -in @("OldNeutral", "AltNeutral", "AltPpuPrime", "AltSpuWide")) {
 "@
 }
 
-if ($Mode -eq "RocknixFast" -or $Mode -eq "RocknixCorrect") {
-    $writeColorBuffers = if ($Mode -eq "RocknixCorrect") { "true" } else { "false" }
-    $wcbNote = if ($Mode -eq "RocknixCorrect") { "WCB on for correctness comparison." } else { "WCB off to test the likely Rocknix-fast path; visual correctness must be checked." }
+if ($Mode -in @("RocknixFast", "RocknixCorrect", "Rocknix720Fast", "Rocknix720Correct")) {
+    $is720Target = $Mode -in @("Rocknix720Fast", "Rocknix720Correct")
+    $isCorrectTarget = $Mode -in @("RocknixCorrect", "Rocknix720Correct")
+    $writeColorBuffers = if ($isCorrectTarget) { "true" } else { "false" }
+    $resolution = if ($is720Target) { "1280x720" } else { "720x480" }
+    $resolutionScale = if ($is720Target) { 100 } else { 50 }
+    $targetNote = if ($is720Target) { "720p mirror for the AYN Thor Rocknix video target." } else { "Low-res Rocknix SM8550 preset mirror." }
+    $wcbNote = if ($isCorrectTarget) { "WCB on for correctness comparison." } else { "WCB off to test the likely Rocknix-fast path; visual correctness must be checked." }
 
     $profile = @"
 # RPCSX_THOR_ROCKNIX_MIRROR_PROFILE
 # Source: Rocknix SM8550 RPCS3 preset / launcher delta investigation.
 # Title ID: BLUS30161
+# $targetNote
 # $wcbNote
 # Android-safe mirror: keeps VRAM capped instead of Rocknix's effectively uncapped Linux value.
 Core:
@@ -86,7 +92,7 @@ Core:
 
 Video:
   Renderer: Vulkan
-  Resolution: 720x480
+  Resolution: $resolution
   Aspect ratio: 16:9
   Frame limit: 30
   Shader Precision: Low
@@ -95,7 +101,7 @@ Video:
   Relaxed ZCULL Sync: true
   Multithreaded RSX: false
   Disable On-Disk Shader Cache: false
-  Resolution Scale: 50
+  Resolution Scale: $resolutionScale
   Shader Compiler Threads: $ShaderCompilerThreads
   Driver Wake-Up Delay: 1
   Vulkan:
