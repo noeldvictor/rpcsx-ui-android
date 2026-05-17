@@ -28,6 +28,8 @@ param(
     [int]$HostSampleEverySeconds = 30,
     [ValidateSet("Virtual", "OdinRaw", "Direct")]
     [string]$AndroidInputMode = "Direct",
+    [ValidateSet("Keep", "Quiet", "Normal", "Verbose", "ReducedLoop", "ReducedLoopEmit", "ReducedLoopEmitQuiet", "ReducedLoopEmitU4", "ReducedLoopEmitU4Quiet", "ReducedLoopEmitU8", "ReducedLoopEmitU8Quiet", "SpursProbe", "SemaProfile", "SemaFast", "DmaProfile", "DmaVerify", "RsxAuditor", "RsxDmaHostFence", "RsxDepthFeedback", "RsxTextureBarrierSkipColor", "RsxTextureBarrierSkipDepth", "RsxTextureBarrierSkipAll", "FastBusyWaitLight", "FastBusyWait", "FastBusyWaitAggressive", "WaitProfiler", "WaitProfilerVerbose", "GetllarProbe", "GetllarShort", "GetllarTiny", "GetllarYield8", "GetllarNoRsxLock")]
+    [string]$AndroidLogMode = "Keep",
     [string]$AndroidInputProfile = "",
     [int]$AndroidRoutePostWaitSeconds = 5,
     [string]$Driver = "stock-qualcomm",
@@ -136,6 +138,14 @@ function Set-AndroidSpeedProperties {
     Write-Host "Android speed properties: debug.rpcsx.thor.es_sema_superpath=$semaMode debug.rpcsx.thor.es_dma_superpath=$dmaMode"
 }
 
+function Set-AndroidLogMode {
+    if ($AndroidLogMode -eq "Keep") {
+        return
+    }
+
+    & (Join-Path $PSScriptRoot "set_thor_logging.ps1") -Mode $AndroidLogMode
+}
+
 function Invoke-DeviceSnapshot {
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $safe = Get-SpeedLabel
@@ -186,6 +196,7 @@ function Invoke-AndroidSceneCapture {
         "- Core: $Core",
         "- Package: $Package",
         "- Duration seconds: $AndroidSceneSeconds",
+        "- Android log mode: $AndroidLogMode",
         "- Perfetto: $(-not $NoPerfetto)",
         "- Screenrecord: $(-not $NoScreenRecord)",
         "- Capture dir: $captureDir",
@@ -318,6 +329,7 @@ switch ($Action) {
         & (Join-Path $PSScriptRoot "windows_rpcs3_lab.ps1") @runParams
     }
     "AndroidStart" {
+        Set-AndroidLogMode
         Set-AndroidSpeedProperties
         $runParams = @{
             Action = "Auto"
@@ -337,9 +349,11 @@ switch ($Action) {
         & (Join-Path $PSScriptRoot "thor_ooda.ps1") -Action Capture -Profile eternal-sonata-speed -Label "$safeLabel-android-capture" -Symptom "Eternal Sonata $Scene baseline capture, driver=$Driver, core=$Core"
     }
     "AndroidScene" {
+        Set-AndroidLogMode
         Invoke-AndroidSceneCapture
     }
     "AndroidRouteScene" {
+        Set-AndroidLogMode
         Set-AndroidSpeedProperties
         Invoke-AndroidRouteScene
     }

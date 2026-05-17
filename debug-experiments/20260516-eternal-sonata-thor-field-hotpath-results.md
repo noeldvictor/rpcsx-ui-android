@@ -180,6 +180,9 @@ Changed files/settings:
   and emitted loop body unroll count.
 - `tools/set_thor_logging.ps1` added `ReducedLoopEmitU4` and
   `ReducedLoopEmitU8`; `ReducedLoopEmit` keeps the previous u2 behavior.
+- Follow-up tooling adds `ReducedLoopEmitQuiet`, `ReducedLoopEmitU4Quiet`,
+  and `ReducedLoopEmitU8Quiet` so matched FPS sweeps can keep the reduced-loop
+  compiler path on while suppressing logcat/tag pressure.
 - Rollback switch: use `ReducedLoopEmit` or set
   `debug.rpcsx.thor.spu_reduced_loop_unroll=2`.
 
@@ -199,6 +202,33 @@ Additional flicker burst:
 - 8 frames captured; first/last inspected and showed the same pause/menu overlay
   without obvious black spots or menu corruption. FPS varied during the burst,
   likely because repeated `screencap` pulls are intrusive.
+
+Low-overhead follow-up:
+
+- Added quiet reduced-loop logging modes so u4 can be measured without logcat
+  pressure: `ReducedLoopEmitQuiet`, `ReducedLoopEmitU4Quiet`, and
+  `ReducedLoopEmitU8Quiet`.
+- u4 quiet field route:
+  `debug-captures/android-speed-sprint/20260516-203315-thor-input-eternal-sonata-field-route/`
+  plus `debug-captures/android-speed-sprint/20260516-203729-es-u4quiet-field-lowoverhead-scene/`.
+  Screenshot overlays read `18.22`, `19.49`, and `19.27 FPS`; visuals looked
+  correct.
+- stock quiet field route:
+  `debug-captures/android-speed-sprint/20260516-203849-thor-input-eternal-sonata-field-route/`
+  plus `debug-captures/android-speed-sprint/20260516-204305-es-stockquiet-field-lowoverhead-scene/`.
+  Screenshot overlays read `16.36`, `13.89`, and `17.95 FPS`; visuals looked
+  correct. This is a low-sample overlay check, not a sustained frame-time proof,
+  but it keeps u4 in the `promising` bucket and close to the first `20%` target.
+- Live flicker report capture while stock quiet was active:
+  `debug-captures/thor-screenshots/20260516-204435-es-live-flicker-fast`,
+  `debug-captures/thor-screenshots/20260516-204848-es-live-flicker-execout`,
+  and video `debug-captures/thor-screenshots/20260516-205053-es-live-flicker-video`.
+  Captured props show `spu_reduced_loop_emit=0`, `spu_reduced_loop_unroll=2`,
+  `logcat=0`, `rsx_texture_barrier=off`, and `rsx_depth_feedback=off`.
+  Contact sheets and 10 FPS video frame extraction did not show a black-frame or
+  missing-texture flash; the strongest diffs were normal butterfly/lighting
+  motion. If the panel visibly flickers while capture stays clean, investigate
+  presentation/frame pacing or display-path behavior before blaming u4.
 
 Status: `promising-field-menu`, not a full win. u4 is the best tested unroll
 factor and is a small field uplift over the same dev-core u2 run, with menu

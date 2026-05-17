@@ -7,6 +7,8 @@ param(
     [int]$IntervalMs = 250,
     [string]$OutputDir = "",
     [string]$Package = "net.rpcsx.easy",
+    [ValidateSet("Pull", "ExecOut")]
+    [string]$CaptureMode = "Pull",
     [switch]$KeepRemote,
     [switch]$NoMetadata
 )
@@ -67,6 +69,46 @@ function Invoke-Adb {
     return $output
 }
 
+function Save-AdbExecOut {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LocalPath
+    )
+
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $script:Adb
+    $psi.Arguments = "exec-out screencap -p"
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $psi
+
+    $fileStream = $null
+    try {
+        [void]$process.Start()
+        $fileStream = [System.IO.File]::Open($LocalPath, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write)
+        $process.StandardOutput.BaseStream.CopyTo($fileStream)
+        $fileStream.Close()
+        $fileStream = $null
+        $stderr = $process.StandardError.ReadToEnd()
+        $process.WaitForExit()
+
+        if ($process.ExitCode -ne 0) {
+            throw "adb exec-out screencap -p failed with exit code $($process.ExitCode).`n$stderr"
+        }
+    }
+    finally {
+        if ($fileStream) {
+            $fileStream.Dispose()
+        }
+        if ($process) {
+            $process.Dispose()
+        }
+    }
+}
+
 $script:Adb = Find-Adb
 $repoRoot = Resolve-RepoRoot
 $safeLabel = ($Label -replace "[^A-Za-z0-9_.-]+", "-").Trim("-")
@@ -102,6 +144,7 @@ if (-not $NoMetadata) {
         "- started_local: $(Get-Date -Format o)",
         "- count: $Count",
         "- interval_ms: $IntervalMs",
+        "- capture_mode: $CaptureMode",
         "- package: $Package",
         "- adb: $script:Adb",
         "- remote_temp: $remoteDir",
@@ -129,8 +172,13 @@ try {
         $localShot = Join-Path $OutputDir $shotName
         $capturedAt = Get-Date -Format o
 
-        Invoke-Adb -AdbArgs @("shell", "screencap", "-p", $remoteShot) | Out-Null
-        Invoke-Adb -AdbArgs @("pull", $remoteShot, $localShot) | Out-Null
+        if ($CaptureMode -eq "ExecOut") {
+            Save-AdbExecOut -LocalPath $localShot
+        }
+        else {
+            Invoke-Adb -AdbArgs @("shell", "screencap", "-p", $remoteShot) | Out-Null
+            Invoke-Adb -AdbArgs @("pull", $remoteShot, $localShot) | Out-Null
+        }
 
         if (-not (Test-Path $localShot)) {
             throw "Screenshot was not pulled: $localShot"
@@ -147,6 +195,7 @@ try {
             captured_local = $capturedAt
             bytes = $size
             interval_ms = $IntervalMs
+            capture_mode = $CaptureMode
         }) | Out-Null
 
         if ($i -lt $Count -and $IntervalMs -gt 0) {

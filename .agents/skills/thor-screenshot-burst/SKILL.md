@@ -27,8 +27,14 @@ Keep this skill focused on capture and evidence only. Use `$thor-game-controller
 .\.agents\skills\thor-screenshot-burst\scripts\thor_screenshot_burst.ps1 -Label field-flicker -Count 12 -IntervalMs 150
 ```
 
-5. Inspect all burst frames before calling a rendering change correct. A single clean frame is not enough when flicker is the bug.
-6. Record only summarized outcomes and local capture paths in experiment notes. Do not commit raw screenshots, saves, game content, traces, or personal device captures.
+5. For fast flicker, use direct `exec-out` capture to avoid the slower remote-file pull path:
+
+```powershell
+.\.agents\skills\thor-screenshot-burst\scripts\thor_screenshot_burst.ps1 -Label field-flicker-fast -Count 30 -IntervalMs 0 -CaptureMode ExecOut
+```
+
+6. Inspect all burst frames before calling a rendering change correct. A single clean frame is not enough when flicker is the bug.
+7. Record only summarized outcomes and local capture paths in experiment notes. Do not commit raw screenshots, saves, game content, traces, or personal device captures.
 
 ## Acceptance
 
