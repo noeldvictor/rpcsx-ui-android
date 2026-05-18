@@ -19,6 +19,11 @@ param(
     [string]$EternalSonataGpuProbe = "Off",
     [ValidateSet("Off", "Verify")]
     [string]$EternalSonataDmaSuperPath = "Off",
+    [string]$RsxAuditor = "Off",
+    [ValidateSet("Off", "Host")]
+    [string]$RsxDmaFence = "Off",
+    [ValidateSet("Off", "Depth", "Color", "All")]
+    [string]$RsxTextureBarrier = "Off",
     [string[]]$SearchRoots = @(),
     [int]$MaxSeconds = 20,
     [string]$InputMacro = "",
@@ -1223,6 +1228,9 @@ if ($EternalSonataWaitSuperPath -eq "Clamp") {
 Write-LabLine $runLog "- Eternal Sonata semaphore ESRCH superpath: $EternalSonataSemaphoreSuperPath"
 Write-LabLine $runLog "- Eternal Sonata GPU candidate probe: $EternalSonataGpuProbe"
 Write-LabLine $runLog "- Eternal Sonata DMA superpath: $EternalSonataDmaSuperPath"
+Write-LabLine $runLog "- RSX auditor: $RsxAuditor"
+Write-LabLine $runLog "- RSX DMA fence: $RsxDmaFence"
+Write-LabLine $runLog "- RSX texture barrier: $RsxTextureBarrier"
 if ($EternalSonataGpuProbe -ne "Off" -or $EternalSonataDmaSuperPath -ne "Off") {
     $gpuProbeDumpDir = Join-Path $runDir "spu-images"
     Write-LabLine $runLog "- Eternal Sonata GPU probe SPU image dump dir: $gpuProbeDumpDir"
@@ -1291,6 +1299,9 @@ $previousEsSemaSuperPath = [Environment]::GetEnvironmentVariable("RPCS3_ES_SEMA_
 $previousEsGpuProbe = [Environment]::GetEnvironmentVariable("RPCS3_ES_GPU_PROBE", "Process")
 $previousEsGpuProbeDumpDir = [Environment]::GetEnvironmentVariable("RPCS3_ES_GPU_PROBE_DUMP_DIR", "Process")
 $previousEsDmaSuperPath = [Environment]::GetEnvironmentVariable("RPCS3_ES_DMA_SUPERPATH", "Process")
+$previousRsxAuditor = [Environment]::GetEnvironmentVariable("RPCS3_ES_RSX_AUDITOR", "Process")
+$previousRsxDmaFence = [Environment]::GetEnvironmentVariable("RPCS3_ES_RSX_DMA_FENCE", "Process")
+$previousRsxTextureBarrier = [Environment]::GetEnvironmentVariable("RPCS3_ES_RSX_TEXTURE_BARRIER", "Process")
 $esSuperPathEnv = switch ($EternalSonataSuperPath) {
     "Detect" { "detect" }
     "Cache" { "cache" }
@@ -1316,6 +1327,23 @@ $esDmaSuperPathEnv = switch ($EternalSonataDmaSuperPath) {
     "Verify" { "verify" }
     default { "off" }
 }
+$rsxAuditorEnv = if ([string]::IsNullOrWhiteSpace($RsxAuditor) -or $RsxAuditor -eq "Off") {
+    "off"
+} elseif ($RsxAuditor -eq "On") {
+    "60"
+} else {
+    $RsxAuditor.ToLowerInvariant()
+}
+$rsxDmaFenceEnv = switch ($RsxDmaFence) {
+    "Host" { "host" }
+    default { "off" }
+}
+$rsxTextureBarrierEnv = switch ($RsxTextureBarrier) {
+    "Depth" { "depth" }
+    "Color" { "color" }
+    "All" { "all" }
+    default { "off" }
+}
 $esGpuProbeDumpDir = if ($EternalSonataGpuProbe -ne "Off" -or $EternalSonataDmaSuperPath -ne "Off") { Join-Path $runDir "spu-images" } else { "" }
 
 [Environment]::SetEnvironmentVariable("RPCS3_ES_SPURS_SUPERPATH", $esSuperPathEnv, "Process")
@@ -1328,6 +1356,9 @@ if ($EternalSonataJoinSpin -ge 0) {
 [Environment]::SetEnvironmentVariable("RPCS3_ES_GPU_PROBE", $esGpuProbeEnv, "Process")
 [Environment]::SetEnvironmentVariable("RPCS3_ES_GPU_PROBE_DUMP_DIR", $esGpuProbeDumpDir, "Process")
 [Environment]::SetEnvironmentVariable("RPCS3_ES_DMA_SUPERPATH", $esDmaSuperPathEnv, "Process")
+[Environment]::SetEnvironmentVariable("RPCS3_ES_RSX_AUDITOR", $rsxAuditorEnv, "Process")
+[Environment]::SetEnvironmentVariable("RPCS3_ES_RSX_DMA_FENCE", $rsxDmaFenceEnv, "Process")
+[Environment]::SetEnvironmentVariable("RPCS3_ES_RSX_TEXTURE_BARRIER", $rsxTextureBarrierEnv, "Process")
 try {
     $process = Start-Process @startInfo
 } finally {
@@ -1339,6 +1370,9 @@ try {
     [Environment]::SetEnvironmentVariable("RPCS3_ES_GPU_PROBE", $previousEsGpuProbe, "Process")
     [Environment]::SetEnvironmentVariable("RPCS3_ES_GPU_PROBE_DUMP_DIR", $previousEsGpuProbeDumpDir, "Process")
     [Environment]::SetEnvironmentVariable("RPCS3_ES_DMA_SUPERPATH", $previousEsDmaSuperPath, "Process")
+    [Environment]::SetEnvironmentVariable("RPCS3_ES_RSX_AUDITOR", $previousRsxAuditor, "Process")
+    [Environment]::SetEnvironmentVariable("RPCS3_ES_RSX_DMA_FENCE", $previousRsxDmaFence, "Process")
+    [Environment]::SetEnvironmentVariable("RPCS3_ES_RSX_TEXTURE_BARRIER", $previousRsxTextureBarrier, "Process")
 }
 
 if (-not $SkipHostSystemCheck) {

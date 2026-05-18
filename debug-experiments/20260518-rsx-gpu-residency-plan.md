@@ -167,3 +167,105 @@ Continue RSX/GPU work through residency and synchronization:
 3. if render-pass breaks dominate, target texture/image barrier locality;
 4. only build GPU compute for RSX-adjacent data after a capture proves real
    texture/vertex/render-prep bandwidth that can stay on GPU.
+
+## Windows Lab Slice - 2026-05-17
+
+Status: `windows-depth-texture-barrier-proved`.
+
+Windows-first is the right route for RSX/GPU experiments because it gives fast
+route/counter iteration before touching Thor. The Windows lab checkout
+`rpcs3-upstream` now has a local RSX auditor and title-gated depth texture
+barrier skip for Eternal Sonata behind environment variables:
+
+- `RPCS3_ES_RSX_AUDITOR=60|frame|N`
+- `RPCS3_ES_RSX_DMA_FENCE=host`
+- `RPCS3_ES_RSX_TEXTURE_BARRIER=depth|color|all`
+
+The Android repo wrappers now expose these as:
+
+```powershell
+.\tools\eternal_sonata_speed_sprint.ps1 `
+  -Action WindowsScene `
+  -Scene field `
+  -WindowsRsxAuditor On
+```
+
+and:
+
+```powershell
+.\tools\eternal_sonata_speed_sprint.ps1 `
+  -Action WindowsScene `
+  -Scene field `
+  -WindowsRsxAuditor On `
+  -WindowsRsxTextureBarrier Depth
+```
+
+Build proof:
+
+- `cmake --build rpcs3-upstream\build-msvc --config Release --target rpcs3 --parallel 6`
+  passed after the auditor patch.
+- The rebuilt binary was `rpcs3-upstream\build-msvc\bin\rpcs3.exe`.
+
+Baseline Windows field capture:
+
+- Run dir:
+  `debug-captures/windows-lab/20260517-223527-rsx-auditor-windows/`
+- Screenshot:
+  `screenshots/screenshot-0147s.png`
+- Visual result: reached the first playable field, correct-looking field
+  screenshot, overlay about `30 FPS`.
+- Host grade: `high` by the end because the host CPU saturated; useful for RSX
+  classification, not clean timing.
+- Summary:
+  `eternal-sonata-rsx-auditor-summary.md`
+- Auditor totals across `7080` frames:
+  - queue submits: `7219`, about `61.18` per 60 frames;
+  - hard sync flushes: `117`, about `0.99` per 60 frames;
+  - render-pass barrier breaks: `4754`, about `40.29` per 60 frames;
+  - break source `g/b/i/t`: `0/0/3169/1585`;
+  - barriers `g/b/i/t/all`: `0/165/12830/1585/0`;
+  - texture barriers color/depth: `0/1585`;
+  - DMA transfer fences: `15`, about `24.19 MB` total;
+  - detile: `0`, simple upload: `1`.
+
+Reading: unlike the old Thor auditor run, Windows field is not a DMA-fence
+bandwidth story. It is mostly image/texture barrier render-pass locality, with
+depth texture barriers as the first obvious target.
+
+Depth texture-barrier skip Windows capture:
+
+- Run dir:
+  `debug-captures/windows-lab/20260517-224402-rsx-depth-skip-windows/`
+- Gate:
+  `RPCS3_ES_RSX_TEXTURE_BARRIER=depth`
+- Screenshot:
+  `screenshots/screenshot-0146s.png`
+- Visual result: reached field, correct-looking screenshot, overlay about
+  `30 FPS`.
+- Host grade: `high` because Vita3K was active, so do not use this as timing.
+- Summary:
+  `eternal-sonata-rsx-auditor-summary.md`
+- Auditor totals across `5640` frames:
+  - render-pass barrier breaks: `2358`, about `25.09` per 60 frames;
+  - break source `g/b/i/t`: `0/0/2358/0`;
+  - barriers `g/b/i/t/all`: `0/178/10165/0/0`;
+  - texture barriers color/depth: `0/0`;
+  - texture skips/post elides: `1257/667`;
+  - DMA transfer fences: `22`, about `33.54 MB`;
+  - pipeline create time dropped to about `84.72 ms`, likely cache/warmup state
+    and not a claim about the barrier gate.
+
+Reading: depth texture-barrier skip mechanically removed the texture-side
+render-pass breaks and the field screenshot survived. The remaining pressure is
+image barriers. The next Windows RSX step is callsite labeling for image
+barriers, especially render-target and texture-cache layout transitions, before
+attempting a broader skip.
+
+Port decision:
+
+- The depth texture-barrier skip already exists on Thor. Windows says the idea
+  is mechanically valid, but it only removes the texture half of the locality
+  pressure.
+- Next port-worthy work is not compute. It is image-barrier callsite labels and
+  a narrow preserve-renderpass/layout-transition experiment, then Thor field,
+  first battle, and menu validation.

@@ -19,6 +19,7 @@ function Resolve-AuditorLogPath {
     $root = Resolve-AuditorPath $RunDir
     $candidates = @(
         "thor-rsx-auditor-logcat.txt",
+        "RPCS3.log",
         "logcat-full.txt",
         "logcat-live.txt",
         "RPCSX.log",

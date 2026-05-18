@@ -19,6 +19,11 @@ param(
     [string]$EternalSonataGpuProbe = "Off",
     [ValidateSet("Off", "Verify")]
     [string]$EternalSonataDmaSuperPath = "Off",
+    [string]$WindowsRsxAuditor = "Off",
+    [ValidateSet("Off", "Host")]
+    [string]$WindowsRsxDmaFence = "Off",
+    [ValidateSet("Off", "Depth", "Color", "All")]
+    [string]$WindowsRsxTextureBarrier = "Off",
     [int]$MaxSeconds = 120,
     [int]$AndroidSceneSeconds = 20,
     [int]$ScreenshotEverySeconds = 15,
@@ -312,6 +317,9 @@ switch ($Action) {
             EternalSonataSemaphoreSuperPath = $EternalSonataSemaphoreSuperPath
             EternalSonataGpuProbe = $EternalSonataGpuProbe
             EternalSonataDmaSuperPath = $EternalSonataDmaSuperPath
+            RsxAuditor = $WindowsRsxAuditor
+            RsxDmaFence = $WindowsRsxDmaFence
+            RsxTextureBarrier = $WindowsRsxTextureBarrier
             MaxSeconds = $MaxSeconds
             ScreenshotEverySeconds = $ScreenshotEverySeconds
             ScreenshotStartSeconds = $ScreenshotStartSeconds
