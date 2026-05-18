@@ -93,6 +93,17 @@ future GPU superpath claims must use an optimized native core baseline.
   - script flag: `tools/windows_rpcs3_lab.ps1 -EternalSonataGpuProbe Profile`
   - wrapper flag: `tools/eternal_sonata_speed_sprint.ps1 -EternalSonataGpuProbe Profile`
   - summary tool: `tools/summarize_eternal_sonata_gpu_probe.ps1 -RunDir RUN_DIR`
+- 2026-05-17 scout workflow update:
+  - `tools/summarize_eternal_sonata_gpu_probe.ps1` now reads Windows `RPCS3.log`
+    and Thor Android `RPCSX.log`, `logcat-full.txt`, `logcat-live.txt`,
+    `thor-rsx-auditor-logcat.txt`, or `rpcsx-live-tail.txt`.
+  - The summary now labels records with `offload_fit` and `dispatch_risk`.
+    This explicitly separates real GPU-resident candidates from large-but-CPU
+    SPU kernel/HLE/codegen candidates and tiny-dispatch traps.
+  - `tools/set_thor_logging.ps1 -Mode GpuSuperpathScout` enables DMA verify
+    plus RSX auditor summaries every 30 frames. Use it only for short field,
+    battle, or menu scout captures because verify hashing is intentionally
+    intrusive.
 - Probe runs now write ignored local sidecars under each run's `spu-images/` folder:
   - one 256 KB SPU local-storage image per image/entry signature;
   - RPCS3 SPU disassembly windows around hot max-DMA PCs.

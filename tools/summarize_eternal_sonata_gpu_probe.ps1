@@ -13,6 +13,37 @@ function Resolve-ProbePath {
     return [System.IO.Path]::GetFullPath($Path)
 }
 
+function Resolve-ProbeLogPath {
+    param([string]$RunDir)
+
+    $root = Resolve-ProbePath $RunDir
+    $candidates = @(
+        "RPCS3.log",
+        "RPCSX.log",
+        "logcat-full.txt",
+        "logcat-live.txt",
+        "thor-rsx-auditor-logcat.txt",
+        "rpcsx-live-tail.txt"
+    )
+
+    foreach ($candidate in $candidates) {
+        $path = Join-Path $root $candidate
+        if (Test-Path -LiteralPath $path -PathType Leaf) {
+            return $path
+        }
+    }
+
+    $fallback = Get-ChildItem -LiteralPath $root -Recurse -File -Include $candidates -ErrorAction SilentlyContinue |
+        Sort-Object -Property LastWriteTime -Descending |
+        Select-Object -First 1
+
+    if ($fallback) {
+        return $fallback.FullName
+    }
+
+    return Join-Path $root "RPCS3.log"
+}
+
 function Convert-ProbeNumber {
     param([AllowNull()][string]$Value)
 
@@ -55,10 +86,82 @@ function Format-ProbeBytes {
     return "$Value B"
 }
 
+function Get-ProbeOffloadFit {
+    param([object]$Record)
+
+    if ($Record.output_mismatches -gt 0) {
+        return "reject-mismatch"
+    }
+
+    $rsxBytes = [UInt64]($Record.rsx_get_bytes + $Record.rsx_put_bytes)
+    if ($rsxBytes -gt 0 -and $Record.total_bytes -ge 1048576) {
+        return "gpu-resident-strong"
+    }
+
+    if ($rsxBytes -gt 0) {
+        return "gpu-resident-check"
+    }
+
+    if ($Record.repeat_hits -gt 0 -and $Record.put_payload_bytes -gt 0) {
+        return "cpu-hle-or-replay"
+    }
+
+    if ($Record.total_bytes -ge 1048576) {
+        return "spu-kernel-hle"
+    }
+
+    if ($Record.max_dma_size -ge 65536) {
+        return "batch-first"
+    }
+
+    return "too-small"
+}
+
+function Get-ProbeDispatchRisk {
+    param([object]$Record)
+
+    if ($Record.max_dma_size -eq 0) {
+        return "unknown"
+    }
+
+    if ($Record.cmd_count -gt 128 -and $Record.max_dma_size -lt 65536) {
+        return "tiny-dispatch-trap"
+    }
+
+    if ($Record.cmd_count -gt 32 -and $Record.max_dma_size -lt 262144) {
+        return "needs-batching"
+    }
+
+    if ($Record.total_bytes -ge 1048576 -or $Record.max_dma_size -ge 262144) {
+        return "batchable"
+    }
+
+    return "low"
+}
+
+function Get-ProbeReading {
+    param([object]$Record)
+
+    switch ($Record.offload_fit) {
+        "reject-mismatch" { return "Verification saw mismatched outputs; do not fast-path this signature." }
+        "gpu-resident-strong" { return "Nonzero RSX-local traffic plus large DMA makes this a real Vulkan/RSX superpath candidate." }
+        "gpu-resident-check" { return "RSX-local traffic exists, but size/repeat evidence must survive field, battle, and menu." }
+        "cpu-hle-or-replay" { return "Repeat-clean payloads point at a verified CPU/HLE or replay cache before Vulkan compute." }
+        "spu-kernel-hle" { return "Large SPU traffic with zero RSX-local bytes points first at SPU kernel HLE, NEON/dotprod, reduced-loop, or scheduler/copy work." }
+        "batch-first" { return "Potentially useful only if batched; one dispatch per DMA command would be too expensive." }
+        default { return "Too small or insufficiently stable for a GPU offload experiment." }
+    }
+}
+
 function Read-ProbeRecord {
     param([string]$Line)
 
-    if ($Line -notmatch 'Eternal Sonata GPU candidate probe:') {
+    $probeKind = ""
+    if ($Line -match 'Eternal Sonata GPU candidate probe:') {
+        $probeKind = "windows-gpu"
+    } elseif ($Line -match 'Eternal Sonata DMA candidate probe:') {
+        $probeKind = "thor-dma"
+    } else {
         return $null
     }
 
@@ -74,7 +177,8 @@ function Read-ProbeRecord {
         return $null
     }
 
-    return [pscustomobject]@{
+    $record = [pscustomobject]@{
+        probe_kind      = $probeKind
         mode            = $fields['mode']
         title           = $fields['title']
         ppu             = Format-ProbeHex $fields['ppu']
@@ -116,6 +220,43 @@ function Read-ProbeRecord {
         cause           = Format-ProbeHex $fields['cause']
         status          = Format-ProbeHex $fields['status']
     }
+
+    $record | Add-Member -NotePropertyName offload_fit -NotePropertyValue (Get-ProbeOffloadFit $record)
+    $record | Add-Member -NotePropertyName dispatch_risk -NotePropertyValue (Get-ProbeDispatchRisk $record)
+    $record | Add-Member -NotePropertyName reading -NotePropertyValue (Get-ProbeReading $record)
+    return $record
+}
+
+function Read-RsxAuditorRecord {
+    param([string]$Line)
+
+    if ($Line -notmatch 'Thor RSX Auditor:') {
+        return $null
+    }
+
+    $fields = @{}
+    foreach ($match in [regex]::Matches($Line, '(?<key>[A-Za-z0-9_]+)=(?<value>\S+)')) {
+        $fields[$match.Groups['key'].Value] = $match.Groups['value'].Value
+    }
+
+    if (-not $fields.ContainsKey('frames')) {
+        return $null
+    }
+
+    return [pscustomobject]@{
+        frames        = Convert-ProbeNumber $fields['frames']
+        submits       = Convert-ProbeNumber $fields['submits']
+        waits         = Convert-ProbeNumber $fields['waits']
+        signals       = Convert-ProbeNumber $fields['signals']
+        flush_req     = Convert-ProbeNumber $fields['flush_req']
+        async_req     = Convert-ProbeNumber $fields['async_req']
+        hard_sync     = Convert-ProbeNumber $fields['hard_sync']
+        rp_break      = Convert-ProbeNumber $fields['rp_break']
+        all_barriers  = Convert-ProbeNumber $fields['all']
+        pipe          = $fields['pipe']
+        detile        = Convert-ProbeNumber $fields['detile']
+        simple_upload = Convert-ProbeNumber $fields['simple_upload']
+    }
 }
 
 if ([string]::IsNullOrWhiteSpace($LogPath)) {
@@ -123,12 +264,12 @@ if ([string]::IsNullOrWhiteSpace($LogPath)) {
         throw "Pass -RunDir or -LogPath."
     }
 
-    $LogPath = Join-Path (Resolve-ProbePath $RunDir) "RPCS3.log"
+    $LogPath = Resolve-ProbeLogPath $RunDir
 }
 
 $LogPath = Resolve-ProbePath $LogPath
 if (-not (Test-Path -LiteralPath $LogPath -PathType Leaf)) {
-    throw "RPCS3 log not found: $LogPath"
+    throw "Probe log not found: $LogPath"
 }
 
 if ([string]::IsNullOrWhiteSpace($RunDir)) {
@@ -145,10 +286,16 @@ if ([string]::IsNullOrWhiteSpace($CsvPath)) {
 }
 
 $records = New-Object System.Collections.Generic.List[object]
+$rsxAuditorRecords = New-Object System.Collections.Generic.List[object]
 foreach ($line in [System.IO.File]::ReadLines($LogPath)) {
     $record = Read-ProbeRecord $line
     if ($null -ne $record) {
         $records.Add($record) | Out-Null
+    }
+
+    $rsxRecord = Read-RsxAuditorRecord $line
+    if ($null -ne $rsxRecord) {
+        $rsxAuditorRecords.Add($rsxRecord) | Out-Null
     }
 }
 
@@ -158,11 +305,12 @@ $lines.Add("") | Out-Null
 $lines.Add("- Generated: $(Get-Date -Format o)") | Out-Null
 $lines.Add("- Log: $LogPath") | Out-Null
 $lines.Add("- Records: $($records.Count)") | Out-Null
+$lines.Add("- RSX auditor records: $($rsxAuditorRecords.Count)") | Out-Null
 $lines.Add("- Top rows: $Top") | Out-Null
 
 if ($records.Count -eq 0) {
     $lines.Add("") | Out-Null
-    $lines.Add('No `Eternal Sonata GPU candidate probe` records were found.') | Out-Null
+    $lines.Add('No `Eternal Sonata GPU/DMA candidate probe` records were found.') | Out-Null
     $lines | Set-Content -LiteralPath $OutPath -Encoding UTF8
     Write-Host "GPU probe summary: $OutPath"
     return
@@ -177,17 +325,32 @@ $rsxRecords = @($records | Where-Object { $_.rsx_get_bytes -gt 0 -or $_.rsx_put_
 $lines.Add("- Total observed DMA bytes: $(Format-ProbeBytes $totalBytes)") | Out-Null
 $lines.Add(('- Largest single job: {0} in `{1}` / `{2}`' -f (Format-ProbeBytes $maxRecord.total_bytes), $maxRecord.group_name, $maxRecord.spu_name)) | Out-Null
 $lines.Add("- RSX-local traffic records: $($rsxRecords.Count)") | Out-Null
+$fitGroups = @($records | Group-Object -Property offload_fit | Sort-Object -Property Count -Descending)
+$lines.Add("- Offload fit mix: $(@($fitGroups | ForEach-Object { "$($_.Name)=$($_.Count)" }) -join ', ')") | Out-Null
 
 $lines.Add("") | Out-Null
 $lines.Add("## Top Candidates By DMA Bytes") | Out-Null
 $lines.Add("") | Out-Null
-$lines.Add("| Rank | Group | SPU | Image | Pattern | Total | GET | PUT | List GET | List PUT | RSX GET | RSX PUT | Cmds | List Cmds | Max DMA | PC | Block | EA |") | Out-Null
-$lines.Add("| ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |") | Out-Null
+$lines.Add("| Rank | Fit | Dispatch | Group | SPU | Image | Pattern | Total | GET | PUT | List GET | List PUT | RSX GET | RSX PUT | Cmds | List Cmds | Max DMA | PC | Block | EA |") | Out-Null
+$lines.Add("| ---: | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |") | Out-Null
 
 $rank = 1
 foreach ($record in @($records | Sort-Object -Property total_bytes -Descending | Select-Object -First $Top)) {
-    $lines.Add(('| {0} | `{1}` | `{2}` | `{3}` | `{4}` | {5} | {6} | {7} | {8} | {9} | {10} | {11} | {12} | {13} | {14} | `{15}` | `{16}` | `{17}` |' -f $rank, $record.group_name, $record.spu_name, $record.image_sig, $record.pattern_sig, (Format-ProbeBytes $record.total_bytes), (Format-ProbeBytes $record.get_bytes), (Format-ProbeBytes $record.put_bytes), (Format-ProbeBytes $record.list_get_bytes), (Format-ProbeBytes $record.list_put_bytes), (Format-ProbeBytes $record.rsx_get_bytes), (Format-ProbeBytes $record.rsx_put_bytes), $record.cmd_count, $record.list_cmd_count, (Format-ProbeBytes $record.max_dma_size), $record.max_dma_pc, $record.max_dma_block_hash, $record.max_dma_ea)) | Out-Null
+    $lines.Add(('| {0} | `{1}` | `{2}` | `{3}` | `{4}` | `{5}` | `{6}` | {7} | {8} | {9} | {10} | {11} | {12} | {13} | {14} | {15} | {16} | `{17}` | `{18}` | `{19}` |' -f $rank, $record.offload_fit, $record.dispatch_risk, $record.group_name, $record.spu_name, $record.image_sig, $record.pattern_sig, (Format-ProbeBytes $record.total_bytes), (Format-ProbeBytes $record.get_bytes), (Format-ProbeBytes $record.put_bytes), (Format-ProbeBytes $record.list_get_bytes), (Format-ProbeBytes $record.list_put_bytes), (Format-ProbeBytes $record.rsx_get_bytes), (Format-ProbeBytes $record.rsx_put_bytes), $record.cmd_count, $record.list_cmd_count, (Format-ProbeBytes $record.max_dma_size), $record.max_dma_pc, $record.max_dma_block_hash, $record.max_dma_ea)) | Out-Null
     $rank++
+}
+
+$lines.Add("") | Out-Null
+$lines.Add("## Offload Fit Reading") | Out-Null
+$lines.Add("") | Out-Null
+$lines.Add("| Fit | Records | Sum Total | Reading |") | Out-Null
+$lines.Add("| --- | ---: | ---: | --- |") | Out-Null
+
+foreach ($fitGroup in $fitGroups) {
+    $fitRecords = @($fitGroup.Group)
+    $fitSum = [UInt64](($fitRecords | Measure-Object -Property total_bytes -Sum).Sum)
+    $sample = $fitRecords | Select-Object -First 1
+    $lines.Add(('| `{0}` | {1} | {2} | {3} |' -f $fitGroup.Name, $fitGroup.Count, (Format-ProbeBytes $fitSum), $sample.reading)) | Out-Null
 }
 
 $lines.Add("") | Out-Null
@@ -276,6 +439,26 @@ if ($rsxRecords.Count -gt 0) {
         $lines.Add(('| {0} | `{1}` | `{2}` | {3} | {4} | {5} | `{6}` | `{7}` | `{8}` |' -f $rank, $record.group_name, $record.spu_name, (Format-ProbeBytes $record.total_bytes), (Format-ProbeBytes $record.rsx_get_bytes), (Format-ProbeBytes $record.rsx_put_bytes), $record.image_sig, $record.max_dma_pc, $record.max_dma_ea)) | Out-Null
         $rank++
     }
+}
+
+if ($rsxAuditorRecords.Count -gt 0) {
+    $lines.Add("") | Out-Null
+    $lines.Add("## RSX Auditor Snapshot") | Out-Null
+    $lines.Add("") | Out-Null
+
+    $auditorFrames = [UInt64](($rsxAuditorRecords | Measure-Object -Property frames -Sum).Sum)
+    $auditorSubmits = [UInt64](($rsxAuditorRecords | Measure-Object -Property submits -Sum).Sum)
+    $auditorHardSync = [UInt64](($rsxAuditorRecords | Measure-Object -Property hard_sync -Sum).Sum)
+    $auditorRenderPassBreaks = [UInt64](($rsxAuditorRecords | Measure-Object -Property rp_break -Sum).Sum)
+    $auditorDetile = [UInt64](($rsxAuditorRecords | Measure-Object -Property detile -Sum).Sum)
+    $auditorUploads = [UInt64](($rsxAuditorRecords | Measure-Object -Property simple_upload -Sum).Sum)
+
+    $lines.Add("- Auditor frames: $auditorFrames") | Out-Null
+    $lines.Add("- Queue submits: $auditorSubmits") | Out-Null
+    $lines.Add("- Hard sync flushes: $auditorHardSync") | Out-Null
+    $lines.Add("- Render-pass barrier breaks: $auditorRenderPassBreaks") | Out-Null
+    $lines.Add("- Detile jobs: $auditorDetile") | Out-Null
+    $lines.Add("- Simple uploads: $auditorUploads") | Out-Null
 }
 
 $lines.Add("") | Out-Null
