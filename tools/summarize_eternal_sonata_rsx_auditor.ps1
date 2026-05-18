@@ -86,6 +86,17 @@ function Format-AuditorRate {
     return Format-AuditorDecimal (($Value * [double]$Scale) / [double]$Frames)
 }
 
+function Format-ResolveReason {
+    param([UInt64]$Reason)
+
+    switch ($Reason) {
+        1 { return "spill" }
+        2 { return "transfer-read" }
+        3 { return "memory-copy" }
+        default { return "unknown" }
+    }
+}
+
 function Split-AuditorTuple {
     param([AllowNull()][string]$Value, [int]$Count)
 
@@ -299,6 +310,7 @@ function Read-RsxResolveProfileRecord {
         count   = Convert-AuditorNumber $fields['count']
         skips   = Convert-AuditorNumber $fields['skips']
         dup     = Convert-AuditorNumber $fields['dup']
+        reason  = if ($fields.ContainsKey('reason')) { Convert-AuditorNumber $fields['reason'] } else { [UInt64]0 }
         depth   = Convert-AuditorNumber $fields['depth']
         fmt     = if ($fields.ContainsKey('fmt')) { $fields['fmt'] } else { "0x00000000" }
         w       = Convert-AuditorNumber $fields['w']
@@ -543,11 +555,12 @@ foreach ($group in $pressureGroups) {
 if ($resolveProfileRecords.Count -gt 0) {
     $profileGroups = @(
         $resolveProfileRecords |
-            Group-Object -Property key |
+            Group-Object -Property key, reason |
             ForEach-Object {
                 $first = $_.Group[0]
                 [pscustomobject]@{
-                    key     = $_.Name
+                    key     = $first.key
+                    reason  = $first.reason
                     count   = [UInt64](($_.Group | Measure-Object -Property count -Sum).Sum)
                     skips   = [UInt64](($_.Group | Measure-Object -Property skips -Sum).Sum)
                     dup     = [UInt64](($_.Group | Measure-Object -Property dup -Sum).Sum)
@@ -568,17 +581,18 @@ if ($resolveProfileRecords.Count -gt 0) {
     $lines.Add("") | Out-Null
     $lines.Add("## Resolve Profile") | Out-Null
     $lines.Add("") | Out-Null
-    $lines.Add("| Rank | Count | Per 60 Frames | Skips | Dup Tags | Depth | Format | Size | Samples | Grid | Pitch | Base | Key |") | Out-Null
-    $lines.Add("| ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | ---: | --- | ---: | --- | --- |") | Out-Null
+    $lines.Add("| Rank | Count | Per 60 Frames | Skips | Dup Tags | Reason | Depth | Format | Size | Samples | Grid | Pitch | Base | Key |") | Out-Null
+    $lines.Add("| ---: | ---: | ---: | ---: | ---: | --- | ---: | --- | --- | ---: | --- | ---: | --- | --- |") | Out-Null
 
     $rank = 1
     foreach ($profile in @($profileGroups | Select-Object -First $Top)) {
-        $lines.Add(('| {0} | {1} | {2} | {3} | {4} | {5} | `{6}` | {7}x{8} | {9} | {10}x{11} | {12} | `{13}` | `{14}` |' -f
+        $lines.Add(('| {0} | {1} | {2} | {3} | {4} | `{5}` | {6} | `{7}` | {8}x{9} | {10} | {11}x{12} | {13} | `{14}` | `{15}` |' -f
             $rank,
             $profile.count,
             (Format-AuditorRate $profile.count $totalFrames),
             $profile.skips,
             $profile.dup,
+            (Format-ResolveReason $profile.reason),
             $profile.depth,
             $profile.fmt,
             $profile.w,

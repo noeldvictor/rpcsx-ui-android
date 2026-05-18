@@ -453,3 +453,114 @@ Next RSX-on-GPU route:
    changes correctness-sensitive FBO sampling behavior.
 3. Do not port the local Windows resolve-skip code to Thor. Port only a narrow,
    correct locality change after field, first battle, and menu survive.
+
+## Research Pass - 2026-05-18
+
+Status: `tiler-resolve-direction-confirmed`.
+
+Primary-source reading:
+
+- Khronos Vulkan tile-based rendering best practices:
+  <https://github.khronos.org/Vulkan-Site/guide/latest/tile_based_rendering_best_practices.html>
+- Khronos Vulkan subpasses performance sample:
+  <https://github.khronos.org/Vulkan-Site/samples/latest/samples/performance/subpasses/README.html>
+- Khronos `VK_EXT_multisampled_render_to_single_sampled` proposal:
+  <https://github.khronos.org/Vulkan-Site/features/latest/features/proposals/VK_EXT_multisampled_render_to_single_sampled.html>
+- Khronos `VK_EXT_custom_resolve` / `VK_QCOM_render_pass_shader_resolve` material:
+  <https://github.khronos.org/Vulkan-Site/features/latest/features/proposals/VK_EXT_custom_resolve.html>
+  and
+  <https://docs.vulkan.org/refpages/latest/refpages/source/VK_QCOM_render_pass_shader_resolve.html>
+- Qualcomm Adreno tile-based rendering note:
+  <https://www.qualcomm.com/news/onq/2021/07/evolution-high-performance-foveated-rendering-adreno>
+- Academic tile-redundancy paper:
+  <https://arxiv.org/abs/1807.09449>
+- Academic DBT hybrid-execution direction:
+  <https://arxiv.org/abs/2512.00487>
+- Academic GPU emulator batching reference:
+  <https://arxiv.org/abs/1907.08467>
+
+Reading:
+
+- Mobile tilers want the MSAA resolve to happen while data is still tile-local
+  or attachment-local. Khronos guidance explicitly points at resolve
+  attachments in the same subpass plus discarding the multisampled attachment as
+  the efficient tiler shape.
+- Subpass/input-attachment designs matter because they can avoid writing an
+  intermediate render target to external memory and reading it back in a later
+  pass. This matches the Windows evidence: the hot work is not DMA bandwidth,
+  it is repeated render-target resolve barriers.
+- Qualcomm's Adreno material frames tile memory the same way: build the frame
+  locally, write only the needed final contents to system memory, and avoid
+  unnecessary read/rewrite traffic.
+- The newer Vulkan resolve extensions are useful design signals but not a blind
+  patch target. `VK_EXT_custom_resolve` and QCOM shader resolve help when custom
+  filtering is needed; fixed-function or in-pass resolves should stay preferred
+  for simple average/sample resolves if they can match PS3 semantics.
+- CPU-to-GPU emulator offload papers point toward selective, batched,
+  verification-friendly execution. That supports the existing SPU-superpath rule:
+  avoid broad "SPU on GPU"; target stable bulk jobs only.
+
+Decision: keep RSX work on a correct resolve-locality lane. Do not build a
+generic compute resolve until a capture proves the consumer cannot be handled by
+an in-pass/hardware/local path.
+
+## Windows Lab Slice - 2026-05-18 Resolve Reason
+
+Status: `transfer-read-consumer-identified`.
+
+Extended the local Windows lab patch so resolve profile rows include a reason
+bucket:
+
+- `unknown`
+- `spill`
+- `transfer-read`
+- `memory-copy`
+
+The Android repo summarizer remains backward-compatible with old profile rows
+and now shows a `Reason` column in the `Resolve Profile` table.
+
+Clean field capture:
+
+- Run dir:
+  `debug-captures/windows-lab/20260518-103121-rsx-resolve-reason-profile-windows/`
+- Gate:
+  `RPCS3_ES_RSX_TEXTURE_BARRIER=depth`
+- Resolve probe:
+  `RPCS3_ES_RSX_RESOLVE=profile`
+- Host grade: `clean` across five snapshots.
+- Visual result: correct-looking first playable field screenshot:
+  `screenshots/screenshot-0131s.png`.
+- Build proof:
+  `cmake --build rpcs3-upstream\build-msvc --config Release --target rpcs3 --parallel 6`
+  passed before the run, with only the usual `LNK4098` warning.
+- Auditor totals across `7680` frames:
+  - queue submits: `7806`, about `60.98` per 60 frames;
+  - hard sync flushes: `104`, about `0.81` per 60 frames;
+  - render-pass barrier breaks: `4329`, about `33.82` per 60 frames;
+  - image source `rt_res`: `17320`;
+  - image break source `rt_res`: `4329`;
+  - resolve calls/skips color/depth: calls `4330/0`, skips `0/0`.
+- Resolve profile:
+  - count: `4330`, about `33.83` per 60 frames;
+  - reason: `transfer-read`;
+  - duplicate tags: `0`;
+  - depth: `0`;
+  - format: `0x0000002c`;
+  - size: `1280x720`;
+  - samples/grid: `2`, `2x1`;
+  - pitch: `10240`;
+  - base: `0xc0b20000`;
+  - key: `0x26a0ad677c35c962`.
+
+Reading: the hot Eternal Sonata field resolve is requested by
+`render_target::memory_barrier` when a transfer-style read asks for the resolved
+surface. It is not a spill path and not the old-content memory-copy path. That
+means the next Windows A/B should target the transfer-read consumer:
+
+1. Identify whether the transfer-read is texture sampling, CPU readback, blit,
+   or another transfer consumer at `get_surface(surface_access::transfer_read)`.
+2. If it is texture sampling, test the existing `Force Hardware MSAA Resolve`
+   config as a reversible A/B because upstream has a path that forces strict FBO
+   sampling for multisampled attachments.
+3. If it is a real transfer/copy consumer, instrument that callsite before
+   attempting a different resolve scheduler.
